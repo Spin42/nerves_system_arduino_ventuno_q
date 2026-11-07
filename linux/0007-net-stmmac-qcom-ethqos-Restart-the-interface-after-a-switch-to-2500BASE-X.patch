@@ -37,7 +37,7 @@ of the interface when the resolved interface changes to 2500BASE-X.
  	int ret = 0;
  
  	qcom_ethqos_set_sgmii_loopback(ethqos, false);
-@@ -661,9 +666,38 @@
+@@ -661,9 +666,42 @@
  		ret = phy_set_mode_ext(ethqos->serdes_phy, PHY_MODE_ETHERNET,
  				       interface);
  
@@ -57,11 +57,15 @@ of the interface when the resolved interface changes to 2500BASE-X.
 +						  restart_work);
 +	struct net_device *ndev = platform_get_drvdata(ethqos->pdev);
 +
++	int ret;
++
 +	rtnl_lock();
 +	if (netif_running(ndev)) {
 +		netdev_info(ndev, "restarting after the switch to 2500BASE-X\n");
 +		dev_close(ndev);
-+		dev_open(ndev, NULL);
++		ret = dev_open(ndev, NULL);
++		if (ret)
++			netdev_err(ndev, "reopening failed: %d\n", ret);
 +	}
 +	rtnl_unlock();
 +}
@@ -76,15 +80,28 @@ of the interface when the resolved interface changes to 2500BASE-X.
  static int ethqos_clks_config(void *priv, bool enabled)
  {
  	struct qcom_ethqos *ethqos = priv;
-@@ -790,6 +824,11 @@
+@@ -790,6 +828,8 @@
  		return dev_err_probe(dev, PTR_ERR(ethqos->serdes_phy),
  				     "Failed to get serdes phy\n");
  
 +	INIT_WORK(&ethqos->restart_work, ethqos_restart_work);
-+	ret = devm_add_action_or_reset(dev, ethqos_cancel_restart, ethqos);
-+	if (ret)
-+		return ret;
 +
  	ethqos_set_clk_tx_rate(ethqos, NULL, plat_dat->phy_interface,
  			       SPEED_1000);
  
+@@ -826,7 +866,14 @@
+ 	for (i = 1; i < plat_dat->tx_queues_to_use; i++)
+ 		plat_dat->tx_queues_cfg[i].tbs_en = 1;
+ 
+-	return devm_stmmac_pltfr_probe(pdev, plat_dat, &stmmac_res);
++	ret = devm_stmmac_pltfr_probe(pdev, plat_dat, &stmmac_res);
++	if (ret)
++		return ret;
++
++	/* Added after the net device so that, on removal, the work is
++	 * cancelled before the net device goes away.
++	 */
++	return devm_add_action_or_reset(dev, ethqos_cancel_restart, ethqos);
+ }
+ 
+ static const struct of_device_id qcom_ethqos_match[] = {
