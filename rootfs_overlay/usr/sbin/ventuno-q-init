@@ -4,7 +4,9 @@
 
 # GRUB goes back to the previous slot when an update boots without being
 # validated; record that in the Nerves environment.
-fwup -a -q -U -i /usr/share/fwup/ops.fw -t sync-fallback -d /dev/mmcblk0 2>/dev/null
+if ! out=$(fwup -a -q -U -i /usr/share/fwup/ops.fw -t sync-fallback -d /dev/mmcblk0 2>&1); then
+    echo "ventuno-q-init: fwup sync-fallback failed: $out" > /dev/kmsg
+fi
 
 # The Ethernet MAC address is not stored on the board. Derive a locally
 # administered one from the SoC serial number so it stays the same across boots.
