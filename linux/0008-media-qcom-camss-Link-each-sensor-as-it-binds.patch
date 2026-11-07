@@ -7,11 +7,13 @@ in the device tree has bound. A sensor that fails to probe, such as an
 unplugged camera, leaves the other sensors without links or nodes, so
 no camera works. Create each sensor's link and register the nodes in
 the bound callback instead; the complete callback still registers the
-CAMSS nodes when the device tree has no sensor.
+CAMSS nodes when the device tree has no sensor. A failure to register
+the nodes is logged rather than returned: returning it would make the
+async core unbind every sensor bound so far.
 ---
 --- a/drivers/media/platform/qcom/camss/camss.c
 +++ b/drivers/media/platform/qcom/camss/camss.c
-@@ -5173,49 +5173,37 @@
+@@ -5173,49 +5173,46 @@
  		container_of(asd, struct camss_async_subdev, asd);
  	u8 id = csd->interface.csiphy_id;
  	struct csiphy_device *csiphy = &camss->csiphy[id];
@@ -23,7 +25,6 @@ CAMSS nodes when the device tree has no sensor.
  	csiphy->cfg.csi2 = &csd->interface.csi2;
  	subdev->host_priv = csiphy;
  
--	return 0;
 +	for (i = 0; i < sensor->num_pads; i++) {
 +		if (sensor->pads[i].flags & MEDIA_PAD_FL_SOURCE)
 +			break;
@@ -40,8 +41,17 @@ CAMSS nodes when the device tree has no sensor.
 +		return ret;
 +	}
 +
-+	/* Each sensor is usable as soon as it binds, whatever the others do. */
-+	return v4l2_device_register_subdev_nodes(&camss->v4l2_dev);
++	/*
++	 * Each sensor is usable as soon as it binds, whatever the others do.
++	 * A failure here is not returned: the async core would then unbind
++	 * every sensor bound so far. Nodes that are missing are registered on
++	 * the next bind or on completion.
++	 */
++	ret = v4l2_device_register_subdev_nodes(&camss->v4l2_dev);
++	if (ret < 0)
++		dev_err(camss->dev, "Failed to register subdev nodes: %d\n", ret);
++
+ 	return 0;
  }
  
  static int camss_subdev_notifier_complete(struct v4l2_async_notifier *async)
