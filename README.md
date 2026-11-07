@@ -21,7 +21,8 @@ Dragonwing IQ-8275 (QCS8275) with an STM32H5F5 microcontroller.
 | Bluetooth      | QCA2066 over UART (`hci_uart`), `hci0`                             |
 | Fan, LEDs      | EMC2305 fan on the CPU thermal zone; PCA9635 for the 4 RGB LEDs    |
 | CAN            | Not yet supported                                                  |
-| Audio, display | Not supported                                                      |
+| Audio          | HDMI through the ADV7535 bridge; the headphone jack is untested    |
+| Display        | Not supported                                                      |
 
 See [docs/booting.md](docs/booting.md) for the boot chain and the eMMC layout,
 and [docs/stock-image.md](docs/stock-image.md) for what Arduino's image does on
@@ -129,6 +130,18 @@ The PCA9635 at 0x22 on the same bus drives the four RGB LEDs, exposed as
 `red:indicator-N`, `green:indicator-N` and `blue:indicator-N` (N from 0 to 3)
 under `/sys/class/leds`. They light only with push-pull outputs, which
 `linux/0011` selects.
+
+## Audio
+
+The HDMI port is driven by an ADV7535 DSI-to-HDMI bridge, which takes its
+audio over I2S from LPASS port `LPI_MI2S_RX_4`, not from the DisplayPort
+controller (`DISPLAY_PORT_RX_0` fails to start). Route a playback stream to
+it, then play on the matching PCM:
+
+```sh
+amixer -c0 cset name='LPI_MI2S_RX_4 Audio Mixer MultiMedia1' 1
+aplay -D hw:0,0 file.wav
+```
 
 ## GPU
 
