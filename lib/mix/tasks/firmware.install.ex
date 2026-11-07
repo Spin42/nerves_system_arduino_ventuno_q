@@ -82,8 +82,21 @@ defmodule Mix.Tasks.Firmware.Install do
     {output, _status} = ssh(ssh_options, destination, Installer.prepare_command(@remote_dir))
     Mix.shell().info(output)
 
-    unless output =~ "Rebooting into the installer" do
-      Mix.raise("Preparing the installer failed; see the output above.")
+    cond do
+      output =~ "Rebooting into the installer" ->
+        :ok
+
+      output =~ "Reformatting the ESP" ->
+        Mix.raise("""
+        Preparing the installer failed after the ESP was reformatted; see the
+        output above. Do not reboot the board: it would boot neither Ubuntu nor
+        Nerves. Fix the cause and run mix firmware.install again.
+        """)
+
+      true ->
+        Mix.raise(
+          "Preparing the installer failed before any change to the board; see the output above."
+        )
     end
 
     Mix.shell().info("""
