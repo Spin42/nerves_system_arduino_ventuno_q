@@ -44,3 +44,7 @@ CONFIG_VIDEO_IMX477=m
 
 # /dev/i2c-* for i2c-tools
 CONFIG_I2C_CHARDEV=y
+
+# Fan controller and RGB LED controller on the CCI1 bus 1
+CONFIG_SENSORS_EMC2305=y
+CONFIG_LEDS_PCA963X=y

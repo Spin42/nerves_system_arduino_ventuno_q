@@ -1,0 +1,116 @@
+From: Loïc Vigneron <loic@spin42.com>
+Subject: [PATCH] arm64: dts: qcom: monaco-arduino-monza: Add the RGB LED controller
+
+The PCA9635 at 0x22 on the fan controller's bus drives four RGB LEDs,
+which light only with push-pull outputs.
+---
+--- a/arch/arm64/boot/dts/qcom/monaco-arduino-monza.dts
++++ b/arch/arm64/boot/dts/qcom/monaco-arduino-monza.dts
+@@ -7,6 +7,7 @@
+ 
+ #include <dt-bindings/gpio/gpio.h>
+ #include <dt-bindings/input/input.h>
++#include <dt-bindings/leds/common.h>
+ #include <dt-bindings/pwm/pwm.h>
+ #include <dt-bindings/sound/qcom,q6dsp-lpass-ports.h>
+ 
+@@ -189,6 +190,99 @@
+ 			#cooling-cells = <2>;
+ 		};
+ 	};
++
++	/* Four RGB LEDs, one red, green and blue channel each. */
++	leds-controller@22 {
++		compatible = "nxp,pca9635";
++		reg = <0x22>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++		nxp,totem-pole;
++
++		led@0 {
++			reg = <0x0>;
++			color = <LED_COLOR_ID_RED>;
++			function = LED_FUNCTION_INDICATOR;
++			function-enumerator = <0>;
++		};
++
++		led@1 {
++			reg = <0x1>;
++			color = <LED_COLOR_ID_GREEN>;
++			function = LED_FUNCTION_INDICATOR;
++			function-enumerator = <0>;
++		};
++
++		led@2 {
++			reg = <0x2>;
++			color = <LED_COLOR_ID_BLUE>;
++			function = LED_FUNCTION_INDICATOR;
++			function-enumerator = <0>;
++		};
++
++		led@3 {
++			reg = <0x3>;
++			color = <LED_COLOR_ID_RED>;
++			function = LED_FUNCTION_INDICATOR;
++			function-enumerator = <1>;
++		};
++
++		led@4 {
++			reg = <0x4>;
++			color = <LED_COLOR_ID_GREEN>;
++			function = LED_FUNCTION_INDICATOR;
++			function-enumerator = <1>;
++		};
++
++		led@5 {
++			reg = <0x5>;
++			color = <LED_COLOR_ID_BLUE>;
++			function = LED_FUNCTION_INDICATOR;
++			function-enumerator = <1>;
++		};
++
++		led@6 {
++			reg = <0x6>;
++			color = <LED_COLOR_ID_RED>;
++			function = LED_FUNCTION_INDICATOR;
++			function-enumerator = <2>;
++		};
++
++		led@7 {
++			reg = <0x7>;
++			color = <LED_COLOR_ID_GREEN>;
++			function = LED_FUNCTION_INDICATOR;
++			function-enumerator = <2>;
++		};
++
++		led@8 {
++			reg = <0x8>;
++			color = <LED_COLOR_ID_BLUE>;
++			function = LED_FUNCTION_INDICATOR;
++			function-enumerator = <2>;
++		};
++
++		led@9 {
++			reg = <0x9>;
++			color = <LED_COLOR_ID_RED>;
++			function = LED_FUNCTION_INDICATOR;
++			function-enumerator = <3>;
++		};
++
++		led@a {
++			reg = <0xa>;
++			color = <LED_COLOR_ID_GREEN>;
++			function = LED_FUNCTION_INDICATOR;
++			function-enumerator = <3>;
++		};
++
++		led@b {
++			reg = <0xb>;
++			color = <LED_COLOR_ID_BLUE>;
++			function = LED_FUNCTION_INDICATOR;
++			function-enumerator = <3>;
++		};
++	};
+ };
+ 
+ &ethernet0 {

@@ -19,6 +19,7 @@ Dragonwing IQ-8275 (QCS8275) with an STM32H5F5 microcontroller.
 | Cameras        | CAMSS with two Raspberry Pi Global Shutter and one HQ camera       |
 | Wi-Fi          | QCA2066 over PCIe (ath11k), `wlan0`                                |
 | Bluetooth      | QCA2066 over UART (`hci_uart`), `hci0`                             |
+| Fan, LEDs      | EMC2305 fan on the CPU thermal zone; PCA9635 for the 4 RGB LEDs    |
 | CAN            | Not yet supported                                                  |
 | Audio, display | Not supported                                                      |
 
@@ -116,6 +117,18 @@ SMMU's two-cell stream IDs. Configure `wlan0` with VintageNet.
 Bluetooth runs on its own UART. The system ships the Bluetooth patch and the
 NVM file for the board's module (`hpnv21g.30c`) and the ath11k firmware, all
 from `linux-firmware`.
+
+## Fan and LEDs
+
+The EMC2305 at 0x2f on CCI1 bus 1 drives the fan as the cooling device of the
+CPU thermal zone; `hwmon` reports its speed. Mainline's driver never programs
+the PWM frequency, which left the fan whining at 2.441 kHz; `linux/0015` sets
+the 26 kHz the device tree asks for.
+
+The PCA9635 at 0x22 on the same bus drives the four RGB LEDs, exposed as
+`red:indicator-N`, `green:indicator-N` and `blue:indicator-N` (N from 0 to 3)
+under `/sys/class/leds`. They light only with push-pull outputs, which
+`linux/0011` selects.
 
 ## GPU
 

@@ -1,0 +1,77 @@
+From: Loïc Vigneron <loic@spin42.com>
+Subject: [PATCH] hwmon: emc2305: Program the PWM base frequency
+
+The driver reads each fan's PWM frequency from its pwms specifier but
+never writes it to the chip, so the fans run at whatever base frequency
+the chip holds, 2.441 kHz after reset, which some fans whine at. It also
+stores the frequency from the device tree as a table index while the
+other paths store it in Hz. Store Hz everywhere and program the
+PWM_BASE_FREQ registers at probe.
+---
+--- a/drivers/hwmon/emc2305.c
++++ b/drivers/hwmon/emc2305.c
+@@ -30,6 +30,8 @@
+ #define EMC2305_DEFAULT_POLARITY	0x0
+ #define EMC2305_REG_POLARITY		0x2a
+ #define EMC2305_REG_DRIVE_PWM_OUT	0x2b
++#define EMC2305_REG_PWM_BASE_FREQ2	0x2c
++#define EMC2305_REG_PWM_BASE_FREQ1	0x2d
+ #define EMC2305_OPEN_DRAIN		0x0
+ #define EMC2305_PUSH_PULL		0x1
+ #define EMC2305_PWM_SHUTDOWN_UNSET      -1
+@@ -564,8 +566,8 @@
+ 		return ret;
+ 
+ 	if (args.args_count > 0) {
+-		data->pwm_freq[ch] = find_closest(args.args[0], base_freq_table,
+-						  ARRAY_SIZE(base_freq_table));
++		data->pwm_freq[ch] = base_freq_table[find_closest(args.args[0], base_freq_table,
++								  ARRAY_SIZE(base_freq_table))];
+ 	} else {
+ 		data->pwm_freq[ch] = base_freq_table[3];
+ 	}
+@@ -622,6 +624,33 @@
+ 	return count;
+ }
+ 
++/*
++ * Base frequency codes count down from 26 kHz (0) to 2.441 kHz (3), two bits
++ * per channel: channels 0 to 2 in PWM_BASE_FREQ1, 3 and 4 in PWM_BASE_FREQ2.
++ */
++static int emc2305_set_pwm_freq(struct i2c_client *client, struct emc2305_data *data)
++{
++	u8 freq1 = 0, freq2 = 0;
++	unsigned int code;
++	int i, ret;
++
++	for (i = 0; i < data->pwm_num; i++) {
++		code = ARRAY_SIZE(base_freq_table) - 1 -
++		       find_closest(data->pwm_freq[i], base_freq_table,
++				    ARRAY_SIZE(base_freq_table));
++		if (i < 3)
++			freq1 |= code << (2 * i);
++		else
++			freq2 |= code << (2 * (i - 3));
++	}
++
++	ret = i2c_smbus_write_byte_data(client, EMC2305_REG_PWM_BASE_FREQ1, freq1);
++	if (ret < 0 || data->pwm_num <= 3)
++		return ret;
++
++	return i2c_smbus_write_byte_data(client, EMC2305_REG_PWM_BASE_FREQ2, freq2);
++}
++
+ static int emc2305_probe(struct i2c_client *client)
+ {
+ 	struct i2c_adapter *adapter = client->adapter;
+@@ -734,6 +763,10 @@
+ 	if (ret < 0)
+ 		dev_err(dev, "Failed to configure pwm polarity, using default\n");
+ 
++	ret = emc2305_set_pwm_freq(client, data);
++	if (ret < 0)
++		dev_err(dev, "Failed to configure pwm frequency, using default\n");
++
+ 	for (i = 0; i < data->pwm_num; i++) {
+ 		ret = i2c_smbus_write_byte_data(client, EMC2305_REG_FAN_MIN_DRIVE(i),
+ 						data->pwm_min[i]);
