@@ -25,7 +25,8 @@ no frames: `mmc_rx_framecount_gb` in `ethtool -S eth0` stays at the count it
 had at link up, with no CRC, FIFO, buffer-unavailable or bus errors, and
 promiscuous mode changes nothing. The board gets no DHCP lease. Closing and
 reopening `eth0` fixes it until the next boot; `ventuno-q-eth-watch` does
-that 20 seconds after the first link up, so an affected boot reaches the
+that when no frame arrives between 10 and 30 seconds after the first link
+up, so an affected boot reaches the
 network about 40 seconds after power on.
 
 What is known:

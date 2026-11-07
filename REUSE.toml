@@ -37,6 +37,15 @@ precedence = "aggregate"
 SPDX-FileCopyrightText = "The Buildroot developers <buildroot@buildroot.org>"
 SPDX-License-Identifier = "GPL-2.0-or-later"
 
+# The Vulkan compute check
+[[annotations]]
+path = [
+ "package/vk-compute-check/src/**"
+]
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Spin42"
+SPDX-License-Identifier = "Apache-2.0"
+
 # Linux kernel derived or related files
 [[annotations]]
 path = [
@@ -73,6 +82,8 @@ SPDX-License-Identifier = "CC0-1.0"
 # Board scripts
 [[annotations]]
 path = [
+ "rootfs_overlay/boot/*",
+ "rootfs_overlay/usr/bin/*",
  "rootfs_overlay/usr/sbin/*",
  "scripts/*"
 ]

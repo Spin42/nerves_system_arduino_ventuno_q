@@ -4,6 +4,8 @@ Subject: [PATCH] media: i2c: Add the Raspberry Pi IMX477 driver
 The Sony IMX477 of the Raspberry Pi HQ Camera, from the Raspberry Pi
 kernel (rpi-7.2.y). Mainline does not define the embedded data pad's
 MEDIA_BUS_FMT_SENSOR_DATA; the driver falls back to MEDIA_BUS_FMT_META_8.
+
+Origin: https://github.com/raspberrypi/linux/blob/cb6bb2d50901280064d134409e4a51c921319f3e/drivers/media/i2c/imx477.c
 ---
 --- a/drivers/media/i2c/Kconfig
 +++ b/drivers/media/i2c/Kconfig

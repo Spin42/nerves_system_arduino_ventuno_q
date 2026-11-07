@@ -25,13 +25,10 @@ Partitions 70 and 71 replace `persist` (empty) and `system`; 72 uses the last fr
 
 GRUB reads squashfs (`squash4`) and keeps its slot state in `grubenv` on the ESP, as `nerves_system_x86_64` does: the active slot, whether it is validated, and whether an unvalidated slot has already booted once, so an image that never calls `Nerves.Runtime.validate_firmware/0` falls back on the next boot. The Nerves key-value store (`Nerves.Runtime.KV`) follows `nerves_system_x86_64` too.
 
-UEFI's `Boot0000` points at `\EFI\ubuntu\shimaa64.efi` on partition 69. Provisioning either installs GRUB at that path as well or replaces the boot entry; `EFI/BOOT/BOOTAA64.EFI` is the fallback either way.
+UEFI's `Boot0000` points at `\EFI\ubuntu\shimaa64.efi` on partition 69. The installer puts GRUB both there and at the fallback path `\EFI\BOOT\BOOTAA64.EFI`, so the boot entry is left as it is.
 
 ## Installing
 
-The first install has two candidates, chosen in Task 4:
-
-- **From the stock image:** Ubuntu's GRUB boots a provisioning initramfs once (as the spike did), which repartitions 70 to 72, writes the firmware and replaces the ESP's contents. It needs no Qualcomm boot firmware bundle.
-- **Over EDL** with `qdl`, as the UNO Q system does. It needs Qualcomm's boot firmware and partition files for the board.
+`mix firmware.install` installs from the stock image over SSH (see the README): it checks the firmware and the partition table, reformats the ESP with 512-byte sectors, rewrites partitions 70 to 72 and boots an installer initramfs from the ESP, which writes the firmware and reboots into Nerves.
 
 Recovery is over EDL either way: Arduino's flasher restores the stock image.

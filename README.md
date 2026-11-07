@@ -87,7 +87,8 @@ after the switch to 2500BASE-X"). The port links at 10 Mbps to 2.5 Gbps.
 
 On some boots the MAC receives no frames after the first link up. The
 `ventuno-q-eth-watch` script, started before the Erlang VM, restarts `eth0`
-when nothing arrives in the 20 seconds that follow, and logs it to the kernel
+when no frame arrives between 10 and 30 seconds after the first link up, and
+logs it to the kernel
 log.
 
 The SerDes takes its 0.9 V from the LDO that also feeds the display PHYs.

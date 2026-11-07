@@ -22,9 +22,8 @@ make_grubenv "$BINARIES_DIR/grubenv_b_valid" b 1
 make_grubenv "$BINARIES_DIR/grubenv_a_trial" a 0
 make_grubenv "$BINARIES_DIR/grubenv_b_trial" b 0
 
-# Create the fwup ops script to handling MicroSD/eMMC operations at runtime
-# NOTE: revert.fw is the previous, more limited version of this. ops.fw is
-#       backwards compatible.
+# The fwup ops script for runtime operations on the eMMC; revert.fw is the
+# name older tools look for.
 mkdir -p "$TARGET_DIR/usr/share/fwup"
 NERVES_SYSTEM="$BASE_DIR" "$HOST_DIR/usr/bin/fwup" -c -f "$NERVES_DEFCONFIG_DIR/fwup-ops.conf" -o "$TARGET_DIR/usr/share/fwup/ops.fw"
 ln -sf ops.fw "$TARGET_DIR/usr/share/fwup/revert.fw"

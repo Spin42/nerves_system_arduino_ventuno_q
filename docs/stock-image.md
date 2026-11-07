@@ -1,6 +1,6 @@
 # The stock image
 
-What Arduino's Ubuntu 24.04.4 image (kernel `6.8.0-1078-qcom`) does on the VENTUNO Q, recorded by `scripts/survey-stock-image.sh`. The raw survey and serial logs are in `docs/raw/`.
+What Arduino's Ubuntu 24.04.4 image (kernel `6.8.0-1078-qcom`) does on the VENTUNO Q, recorded by `scripts/survey-stock-image.sh`. The raw survey and serial logs are not in the repository: they carry the board's serial number.
 
 ## SoC
 
