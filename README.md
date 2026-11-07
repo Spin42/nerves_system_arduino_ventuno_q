@@ -89,19 +89,14 @@ on a running interface the MAC passes no frames until it is reset, so
 `linux/0007` reopens the interface after that switch (logged as "restarting
 after the switch to 2500BASE-X"). The port links at 10 Mbps to 2.5 Gbps.
 
-On some boots the MAC receives no frames after the first link up. The
-`ventuno-q-eth-watch` script, started before the Erlang VM, restarts `eth0`
-when no frame arrives between 10 and 30 seconds after the first link up, and
-logs it to the kernel
-log.
-
 The SerDes takes its 0.9 V from the LDO that also feeds the display PHYs.
 Mainline's SoM device tree gives the SerDes a deprecated `phy-supply` its
 driver ignores, so with no HDMI display that LDO was turned off and Ethernet
 stopped; `linux/0010` gives the SerDes its `vdda-0p9` and `vdda-1p2` supplies.
+It also ended the stall where, on about one boot in three, the MAC received
+no frames after the first link up.
 
-[docs/ethernet.md](docs/ethernet.md) has the details and what is known about
-the stall.
+[docs/ethernet.md](docs/ethernet.md) has the details.
 
 The MAC address is derived from the SoC serial number
 (`/sys/devices/soc0/serial_number`); the board stores none.

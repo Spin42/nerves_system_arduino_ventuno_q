@@ -18,44 +18,11 @@ Measured over a direct link to an RTL8156 2.5G adapter: three rounds of
 1 Gbps to 2.5 Gbps and back at runtime, each passing traffic, and 2.33 Gbit/s
 of TCP from the board.
 
-## Open: no frames received after boot
+## No frames received after boot
 
-On some boots the link comes up and the board transmits, but the MAC receives
-no frames: `mmc_rx_framecount_gb` in `ethtool -S eth0` stays at the count it
-had at link up, with no CRC, FIFO, buffer-unavailable or bus errors, and
-promiscuous mode changes nothing. The board gets no DHCP lease. Closing and
-reopening `eth0` fixes it until the next boot; `ventuno-q-eth-watch` does
-that when no frame arrives between 10 and 30 seconds after the first link
-up, so an affected boot reaches the
-network about 40 seconds after power on.
-
-What is known:
-
-- It happens at 1 Gbps and at 2.5 Gbps, with the device tree in SGMII or
-  2500BASE-X, and so without any mode switch.
-- It never happens on an open later in the boot: every restart by the
-  watcher, about 40 seconds after power on, worked.
-- Link renegotiation on a running interface (`ethtool -r`, five times) does
-  not cause it.
-- It is not the first open after power on: with `eth0` opened and closed once
-  before the Erlang VM starts, so that VintageNet's open at about 4 seconds is
-  the second, 4 boots out of 8 still stalled.
-- It is not the DSPs: with `qcom_q6v5_pas` blacklisted (no ADSP, CDSP or
-  GPDSP), 6 boots out of 10 stalled, against 2 out of 6 with them.
-- The kernel log of a stalled boot is the same as that of a clean one apart
-  from the RTC time. `rpmh_write_batch` timeout warnings appear on some boots
-  and do not follow the stalls.
-- The PHY's reset timing matches the vendor device tree (11 ms asserted,
-  70 ms before use).
-
-The next step is to hold the first open of `eth0` until about 15 seconds after
-power on. If the stalls disappear, bisect which start-up event between 3 and
-15 seconds breaks a MAC that is already open (the integrated PCS's in-band
-autonegotiation restarts several times between 4 and 5 seconds, while other
-drivers probe).
-
-## Measuring
-
-Reboot over the debug UART, wait for SSH, and count
-`ventuno-q-eth-watch: no frames received` in the kernel log of each boot. Rates vary: 2 of 6 boots on one run, 5 of 6 and 1 of 4 on two runs of
-the same configuration. Compare configurations over at least 8 boots each.
+Before `linux/0010`, on about one boot in three the link came up and the
+board transmitted, but the MAC received no frames until `eth0` was closed and
+reopened: `mmc_rx_framecount_gb` in `ethtool -S eth0` stayed at its count at
+link up, with no CRC, FIFO, buffer-unavailable or bus errors. With the SerDes
+holding its own 0.9 V supply, 28 consecutive boots received frames from the
+first link up.
