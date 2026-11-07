@@ -1,0 +1,22 @@
+From: Loïc Vigneron <loic@spin42.com>
+Subject: [PATCH] PCI: Disable L0s on the TI TUSB73x0
+
+Behind the VENTUNO Q's PCIe switch, the TUSB7340 USB 3 controller's link
+with L0s enabled logs about 45 receiver errors a second at the switch's
+downstream port, and the root port escalates some of them to
+uncorrectable errors, which ath11k and xhci cannot recover from. The
+QCA2066 on the next port of the same switch, also with L0s, logs none,
+and the errors stop with L0s off and L1 kept.
+---
+--- a/drivers/pci/quirks.c
++++ b/drivers/pci/quirks.c
+@@ -2507,6 +2507,9 @@
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x10f4, quirk_disable_aspm_l0s);
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x1508, quirk_disable_aspm_l0s);
+ 
++/* TI TUSB73x0 L0s exits produce a stream of receiver errors at its link partner. */
++DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_TI, 0x8241, quirk_disable_aspm_l0s);
++
+ /* Realtek RTS525A generates a Replay Timer Timeout storm when L0s is enabled. */
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_REALTEK, 0x525a, quirk_disable_aspm_l0s);
+ 

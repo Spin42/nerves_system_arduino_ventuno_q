@@ -115,6 +115,10 @@ SMMU, so DMA from behind the switch faulted; `linux/0013` maps all of them
 and `linux/0014` (from upstream) makes the PCIe driver read that map with the
 SMMU's two-cell stream IDs. Configure `wlan0` with VintageNet.
 
+The USB 3 controller on the same switch, a TI TUSB7340, produces a stream of
+receiver errors on its link in ASPM L0s, which the root port escalates to
+uncorrectable errors; `linux/0016` disables L0s for it and keeps L1.
+
 Bluetooth runs on its own UART. The system ships the Bluetooth patch and the
 NVM file for the board's module (`hpnv21g.30c`) and the ath11k firmware, all
 from `linux-firmware`.
