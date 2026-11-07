@@ -1,0 +1,30 @@
+From: Loïc Vigneron <loic@spin42.com>
+Subject: [PATCH] arm64: dts: qcom: monaco-arduino-monza: Power the Wi-Fi
+
+The Wi-Fi side of the QCA2066 needs GPIO 56 and GPIO 54 high; with them
+low, the PCIe switch's port 1 is empty and ath11k never probes.
+---
+--- a/arch/arm64/boot/dts/qcom/monaco-arduino-monza.dts
++++ b/arch/arm64/boot/dts/qcom/monaco-arduino-monza.dts
+@@ -565,6 +565,21 @@
+ };
+ 
+ &tlmm {
++	/* Power the QCA2066's Wi-Fi side, behind the PCIe switch's port 1. */
++	wlan-pcie-ao-hog {
++		gpio-hog;
++		gpios = <56 GPIO_ACTIVE_HIGH>;
++		output-high;
++		line-name = "WLAN_PCIE_AO";
++	};
++
++	wlan-en-hog {
++		gpio-hog;
++		gpios = <54 GPIO_ACTIVE_HIGH>;
++		output-high;
++		line-name = "WLAN_EN";
++	};
++
+ 	pcie0_default_state: pcie0-default-state {
+ 		wake-pins {
+ 			pins = "gpio0";

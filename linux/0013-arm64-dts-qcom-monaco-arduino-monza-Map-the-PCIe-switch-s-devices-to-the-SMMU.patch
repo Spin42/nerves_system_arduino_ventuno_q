@@ -1,0 +1,32 @@
+From: Loïc Vigneron <loic@spin42.com>
+Subject: [PATCH] arm64: dts: qcom: monaco-arduino-monza: Map the PCIe switch's devices to the SMMU
+
+PCIe0 feeds a PCIe switch, behind which sit the Wi-Fi (bus 3) and the
+USB 3 controller (bus 4). The SoC's iommu-map covers only requester IDs
+0x0 and 0x100, so their DMA arrives with stream ID 0 and the SMMU
+faults: ath11k never gets its firmware over BHI. Map every requester ID
+of the switch, as the vendor device tree does.
+---
+--- a/arch/arm64/boot/dts/qcom/monaco-arduino-monza.dts
++++ b/arch/arm64/boot/dts/qcom/monaco-arduino-monza.dts
+@@ -498,6 +498,20 @@
+ };
+ 
+ &pcie0 {
++	/*
++	 * The PCIe switch's ports and the devices behind them have their own
++	 * requester IDs: the Wi-Fi (bus 3) and the USB 3 controller (bus 4)
++	 * need stream IDs for their DMA.
++	 */
++	iommu-map = <0x0 &pcie_smmu 0x0 0x0 0x1>,
++		    <0x100 &pcie_smmu 0x1 0x0 0x1>,
++		    <0x200 &pcie_smmu 0x7 0x0 0x1>,
++		    <0x208 &pcie_smmu 0x2 0x0 0x1>,
++		    <0x210 &pcie_smmu 0x3 0x0 0x1>,
++		    <0x218 &pcie_smmu 0x4 0x0 0x1>,
++		    <0x300 &pcie_smmu 0x5 0x0 0x1>,
++		    <0x400 &pcie_smmu 0x6 0x0 0x1>;
++
+ 	pinctrl-0 = <&pcie0_default_state>;
+ 	pinctrl-names = "default";
+ 

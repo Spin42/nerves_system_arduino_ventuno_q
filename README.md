@@ -17,8 +17,10 @@ Dragonwing IQ-8275 (QCS8275) with an STM32H5F5 microcontroller.
 | GPU            | Adreno 623: Mesa (freedreno, Turnip), Vulkan 1.3                   |
 | NPU            | Hexagon v75 CDSP over FastRPC; the QAIRT runtime is not included   |
 | Cameras        | CAMSS with two Raspberry Pi Global Shutter and one HQ camera       |
+| Wi-Fi          | QCA2066 over PCIe (ath11k), `wlan0`                                |
+| Bluetooth      | QCA2066 over UART (`hci_uart`), `hci0`                             |
 | CAN            | Not yet supported                                                  |
-| Wi-Fi, Bluetooth, audio, display | Not supported                                    |
+| Audio, display | Not supported                                                      |
 
 See [docs/booting.md](docs/booting.md) for the boot chain and the eMMC layout,
 and [docs/stock-image.md](docs/stock-image.md) for what Arduino's image does on
@@ -101,6 +103,19 @@ the stall.
 
 The MAC address is derived from the SoC serial number
 (`/sys/devices/soc0/serial_number`); the board stores none.
+
+## Wi-Fi and Bluetooth
+
+The QCA2066 module's Wi-Fi sits behind the PCIe switch on PCIe0, with the
+USB 3 controller. `linux/0012` holds its enable GPIOs high from boot: the
+switch enumerates only then. Mainline maps only two PCIe requester IDs to the
+SMMU, so DMA from behind the switch faulted; `linux/0013` maps all of them
+and `linux/0014` (from upstream) makes the PCIe driver read that map with the
+SMMU's two-cell stream IDs. Configure `wlan0` with VintageNet.
+
+Bluetooth runs on its own UART. The system ships the Bluetooth patch and the
+NVM file for the board's module (`hpnv21g.30c`) and the ath11k firmware, all
+from `linux-firmware`.
 
 ## GPU
 
