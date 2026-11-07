@@ -1,0 +1,6 @@
+config BR2_PACKAGE_VK_COMPUTE_CHECK
+	bool "vk-compute-check"
+	depends on BR2_PACKAGE_VULKAN_LOADER
+	help
+	  Runs one compute shader on the first Vulkan device and checks
+	  its output.

@@ -1,0 +1,81 @@
+Disk /dev/mmcblk0: 124321792 sectors, 59.3 GiB
+Sector size (logical/physical): 512/512 bytes
+Disk identifier (GUID): E27F1EAF-020E-8DD5-04CE-A61301B772EC
+Partition table holds up to 72 entries
+Main partition table begins at sector 2 and ends at sector 19
+First usable sector is 34, last usable sector is 124321758
+Partitions will be aligned on 2-sector boundaries
+Total free space is 2940628 sectors (1.4 GiB)
+
+Number  Start (sector)    End (sector)  Size       Code  Name
+   1              34           10273   5.0 MiB     A012  xbl_a
+   2           10274           11297   512.0 KiB   FFFF  xbl_config_a
+   3          131072          131231   80.0 KiB    FFFF  shrm_a
+   4          262144          272383   5.0 MiB     FFFF  xbl_b
+   5          272384          273407   512.0 KiB   FFFF  xbl_config_b
+   6          393216          393375   80.0 KiB    FFFF  shrm_b
+   7          524288          526335   1024.0 KiB  A01A  ddr_a
+   8          526336          528383   1024.0 KiB  FFFF  ddr_b
+   9          655360          655871   256.0 KiB   FFFF  aop_a
+  10          655872          666111   5.0 MiB     A015  uefi_a
+  11          666112          676351   5.0 MiB     FFFF  uefi_b
+  12          676352         1024511   170.0 MiB   FFFF  core_nhlos_a
+  13         1024512         1372671   170.0 MiB   FFFF  core_nhlos_b
+  14         1441792         1445887   2.0 MiB     FFFF  uefisecapp_a
+  15         1445888         1449983   2.0 MiB     FFFF  uefisecapp_b
+  16         1449984         1454079   2.0 MiB     FFFF  xbl_ramdump_a
+  17         1454080         1458175   2.0 MiB     FFFF  xbl_ramdump_b
+  18         1572864         1703935   64.0 MiB    FFFF  dtb_a
+  19         1703936         1835007   64.0 MiB    FFFF  dtb_b
+  20         1835008         1843007   3.9 MiB     A016  tz_a
+  21         1966080         2097151   64.0 MiB    A017  hyp_a
+  22         2097152         2097791   320.0 KiB   FFFF  TZAPPS
+  23         2228224         2236415   4.0 MiB     FFFF  mdtpsecapp_a
+  24         2236416         2301951   32.0 MiB    FFFF  mdtp_a
+  25         2301952         2302975   512.0 KiB   FFFF  keymaster_a
+  26         2359296         2359551   128.0 KiB   FFFF  devcfg_a
+  27         2359552         2359807   128.0 KiB   FFFF  qupfw_a
+  28         2359808         2360063   128.0 KiB   FFFF  qupfw_b
+  29         2360064         2362111   1024.0 KiB  FFFF  cpucp_a
+  30         2362112         2362239   64.0 KiB    A022  apdp_a
+  31         2490368         2490431   32.0 KiB    FFFF  multiimgoem_a
+  32         2490432         2490495   32.0 KiB    FFFF  multiimgqti_a
+  33         2490496         2492543   1024.0 KiB  FFFF  imagefv_a
+  34         2492544         2492665   61.0 KiB    FFFF  usb4fw_a
+  35         2492666         2492673   4.0 KiB     A021  devinfo
+  36         2492674         2494721   1024.0 KiB  FFFF  dip
+  37         2621440         2637823   8.0 MiB     FFFF  spunvm
+  38         2637824         2704671   32.6 MiB    FFFF  splash
+  39         2752512         2752519   4.0 KiB     A040  limits
+  40         2883584         2899967   8.0 MiB     FFFF  logfs
+  41         2899968         2904063   2.0 MiB     FFFF  cateloader
+  42         2904064         2905087   512.0 KiB   FFFF  emac
+  43         3014656         3015679   512.0 KiB   FFFF  uefivarstore
+  44         3145728         3145983   128.0 KiB   FFFF  secdata
+  45         3145984         3227903   40.0 MiB    FFFF  quantumsdk
+  46         3276800         3277823   512.0 KiB   FFFF  quantumfv
+  47         3277824         3279871   1024.0 KiB  FFFF  toolsfv
+  48         3407872         3407887   8.0 KiB     FFFF  softsku
+  49         3538944         3570943   15.6 MiB    FFFF  gearvm_a
+  50         3670016         3801087   64.0 MiB    FFFF  diag_log
+  51         3801088         3932159   64.0 MiB    FFFF  pvm_log
+  52         3932160         4063231   64.0 MiB    FFFF  gvm_log
+  53         4063232         4063743   256.0 KiB   FFFF  aop_b
+  54         4063744         4071743   3.9 MiB     FFFF  tz_b
+  55         4194304         4325375   64.0 MiB    FFFF  hyp_b
+  56         4325376         4326399   512.0 KiB   FFFF  keymaster_b
+  57         4456448         4456703   128.0 KiB   FFFF  devcfg_b
+  58         4456704         4458751   1024.0 KiB  FFFF  cpucp_b
+  59         4458752         4458879   64.0 KiB    FFFF  apdp_b
+  60         4587520         4587583   32.0 KiB    FFFF  multiimgoem_b
+  61         4587584         4587647   32.0 KiB    FFFF  multiimgqti_b
+  62         4587648         4589695   1024.0 KiB  FFFF  imagefv_b
+  63         4589696         4621695   15.6 MiB    FFFF  gearvm_b
+  64         4718592         5767167   512.0 MiB   FFFF  logdump
+  65         5767168         5767175   4.0 KiB     FFFF  recoveryinfo
+  66         5767176         5769223   1024.0 KiB  FFFF  xbl_logs
+  67         5898240         5898247   4.0 KiB     FFFF  SYSFW_VERSION
+  68         6029312         6031359   1024.0 KiB  8301  MBR_RESERVED
+  69         6031360         7079935   512.0 MiB   EF00  efi
+  70         7079936         7141375   30.0 MiB    8300  persist
+  71         7141376       124321758   55.9 GiB    8305  system

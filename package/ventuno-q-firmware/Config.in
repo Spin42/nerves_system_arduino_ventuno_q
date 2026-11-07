@@ -1,0 +1,8 @@
+config BR2_PACKAGE_VENTUNO_Q_FIRMWARE
+	bool "ventuno-q-firmware"
+	help
+	  The linux-firmware files the VENTUNO Q's QCS8275 loads: the
+	  QUP serial engines, the Adreno 623 GPU and the ADSP, CDSP and
+	  GPDSP remote processors.
+
+	  https://gitlab.com/kernel-firmware/linux-firmware

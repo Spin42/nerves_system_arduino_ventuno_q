@@ -1,0 +1,3 @@
+#!/bin/sh
+# Prints the SoC serial number for boardid.
+cat /sys/devices/soc0/serial_number

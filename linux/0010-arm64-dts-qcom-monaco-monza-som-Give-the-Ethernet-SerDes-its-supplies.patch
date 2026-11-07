@@ -1,0 +1,22 @@
+From: Loïc Vigneron <loic@spin42.com>
+Subject: [PATCH] arm64: dts: qcom: monaco-monza-som: Give the Ethernet SerDes its supplies
+
+The SGMII SerDes driver takes a 0.9 V supply (vdda-0p9) and a 1.2 V
+supply (vdda-1p2); the deprecated phy-supply it is given here is not
+used, so the PHY runs on dummy regulators. The 0.9 V rail, L4A, is then
+held only by the display and camera PHYs: with no HDMI display, or once
+it is unplugged, nothing holds L4A, the kernel turns it off, the SerDes
+PLL no longer locks and Ethernet stops. Give the SerDes L4A and L5A.
+---
+--- a/arch/arm64/boot/dts/qcom/monaco-monza-som.dtsi
++++ b/arch/arm64/boot/dts/qcom/monaco-monza-som.dtsi
+@@ -284,7 +284,8 @@
+ 
+ /* Ethernet/SGMII */
+ &serdes0 {
+-	phy-supply = <&vreg_l5a>;
++	vdda-0p9-supply = <&vreg_l4a>;
++	vdda-1p2-supply = <&vreg_l5a>;
+ 
+ 	status = "okay";
+ };

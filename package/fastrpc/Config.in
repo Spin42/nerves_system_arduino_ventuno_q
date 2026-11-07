@@ -1,0 +1,11 @@
+config BR2_PACKAGE_FASTRPC
+	bool "fastrpc"
+	depends on BR2_aarch64
+	select BR2_PACKAGE_LIBYAML
+	select BR2_PACKAGE_LIBBSD
+	help
+	  Qualcomm FastRPC library and daemons, the userspace side of
+	  the kernel's FastRPC driver for offloading work to the
+	  Hexagon DSPs.
+
+	  https://github.com/qualcomm/fastrpc

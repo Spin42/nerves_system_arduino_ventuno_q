@@ -1,0 +1,9 @@
+config BR2_PACKAGE_HEXAGON_DSP_BINARIES
+	bool "hexagon-dsp-binaries"
+	help
+	  The Hexagon DSP shells and libraries the VENTUNO Q's CDSP
+	  loads over FastRPC, matching the CDSP firmware from
+	  linux-firmware, and the FastRPC configuration that points the
+	  board at them.
+
+	  https://github.com/linux-msm/dsp-binaries

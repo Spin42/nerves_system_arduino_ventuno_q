@@ -1,0 +1,92 @@
+version = 1
+
+[[annotations]]
+path = [
+ ".formatter.exs",
+ ".gitignore",
+ "CHANGELOG.md",
+ "nerves_defconfig",
+ "REUSE.toml",
+ "mix.exs",
+ "mix.lock",
+ "VERSION"
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "None"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = [
+ "README.md",
+ "docs/*.md"
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Spin42"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+# Buildroot derived or related files
+[[annotations]]
+path = [
+ "Config.in",
+ "package/**",
+ "external.mk",
+ "post-build.sh",
+ "post-createfs.sh"
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "The Buildroot developers <buildroot@buildroot.org>"
+SPDX-License-Identifier = "GPL-2.0-or-later"
+
+# Linux kernel derived or related files
+[[annotations]]
+path = [
+ "linux/*"
+]
+precedence = "override"
+SPDX-FileCopyrightText = "Various"
+SPDX-License-Identifier = "GPL-2.0-only"
+
+# GRUB configuration
+[[annotations]]
+path = [
+ "grub.cfg"
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Spin42"
+SPDX-License-Identifier = "Apache-2.0"
+
+# Fwup and other config files
+[[annotations]]
+path = [
+ "busybox.fragment",
+ "fwup-ops.conf",
+ "fwup.conf",
+ "fwup_include/*",
+ "rootfs_overlay/etc/boardid.config",
+ "rootfs_overlay/etc/erlinit.config",
+ "rootfs_overlay/etc/fw_env.config"
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "None"
+SPDX-License-Identifier = "CC0-1.0"
+
+# Board scripts
+[[annotations]]
+path = [
+ "rootfs_overlay/usr/sbin/*",
+ "scripts/*"
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Spin42"
+SPDX-License-Identifier = "Apache-2.0"
+
+# Elixir code and CI
+[[annotations]]
+path = [
+ "lib/**",
+ "test/**",
+ ".github/**"
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Spin42"
+SPDX-License-Identifier = "Apache-2.0"

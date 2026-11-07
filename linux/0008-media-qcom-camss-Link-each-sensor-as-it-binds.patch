@@ -1,0 +1,85 @@
+From: Loïc Vigneron <loic@spin42.com>
+Subject: [PATCH] media: qcom: camss: Link each sensor as it binds
+
+CAMSS creates the sensor to CSIPHY links and the subdevice nodes in the
+async notifier's complete callback, which runs only once every sensor
+in the device tree has bound. A sensor that fails to probe, such as an
+unplugged camera, leaves the other sensors without links or nodes, so
+no camera works. Create each sensor's link and register the nodes in
+the bound callback instead; the complete callback still registers the
+CAMSS nodes when the device tree has no sensor.
+---
+--- a/drivers/media/platform/qcom/camss/camss.c
++++ b/drivers/media/platform/qcom/camss/camss.c
+@@ -5173,49 +5173,37 @@
+ 		container_of(asd, struct camss_async_subdev, asd);
+ 	u8 id = csd->interface.csiphy_id;
+ 	struct csiphy_device *csiphy = &camss->csiphy[id];
++	struct media_entity *input = &csiphy->subdev.entity;
++	struct media_entity *sensor = &subdev->entity;
++	unsigned int i;
++	int ret;
+ 
+ 	csiphy->cfg.csi2 = &csd->interface.csi2;
+ 	subdev->host_priv = csiphy;
+ 
+-	return 0;
++	for (i = 0; i < sensor->num_pads; i++) {
++		if (sensor->pads[i].flags & MEDIA_PAD_FL_SOURCE)
++			break;
++	}
++	if (i == sensor->num_pads) {
++		dev_err(camss->dev, "No source pad in external entity\n");
++		return -EINVAL;
++	}
++
++	ret = media_create_pad_link(sensor, i, input, MSM_CSIPHY_PAD_SINK,
++				    MEDIA_LNK_FL_IMMUTABLE | MEDIA_LNK_FL_ENABLED);
++	if (ret < 0) {
++		camss_link_err(camss, sensor->name, input->name, ret);
++		return ret;
++	}
++
++	/* Each sensor is usable as soon as it binds, whatever the others do. */
++	return v4l2_device_register_subdev_nodes(&camss->v4l2_dev);
+ }
+ 
+ static int camss_subdev_notifier_complete(struct v4l2_async_notifier *async)
+ {
+ 	struct camss *camss = container_of(async, struct camss, notifier);
+-	struct v4l2_device *v4l2_dev = &camss->v4l2_dev;
+-	struct v4l2_subdev *sd;
+-
+-	list_for_each_entry(sd, &v4l2_dev->subdevs, list) {
+-		struct csiphy_device *csiphy = sd->host_priv;
+-		struct media_entity *input, *sensor;
+-		unsigned int i;
+-		int ret;
+-
+-		if (!csiphy)
+-			continue;
+-
+-		input = &csiphy->subdev.entity;
+-		sensor = &sd->entity;
+-
+-		for (i = 0; i < sensor->num_pads; i++) {
+-			if (sensor->pads[i].flags & MEDIA_PAD_FL_SOURCE)
+-				break;
+-		}
+-		if (i == sensor->num_pads) {
+-			dev_err(camss->dev,
+-				"No source pad in external entity\n");
+-			return -EINVAL;
+-		}
+-
+-		ret = media_create_pad_link(sensor, i, input,
+-					    MSM_CSIPHY_PAD_SINK,
+-					    MEDIA_LNK_FL_IMMUTABLE | MEDIA_LNK_FL_ENABLED);
+-		if (ret < 0) {
+-			camss_link_err(camss, sensor->name, input->name, ret);
+-			return ret;
+-		}
+-	}
+ 
+ 	return v4l2_device_register_subdev_nodes(&camss->v4l2_dev);
+ }

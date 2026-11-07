@@ -1,0 +1,90 @@
+From: Loïc Vigneron <loic@spin42.com>
+Subject: [PATCH] net: stmmac: qcom-ethqos: Restart the interface after a switch to 2500BASE-X
+
+The QCA8081 switches its host interface from SGMII to 2500BASE-X when
+the link goes from 1 Gbps to 2.5 Gbps. After that switch on a running
+interface the MAC passes no frames in either direction; the MAC and DMA
+registers match those of a working link, retuning or power cycling the
+SerDes does not help, and only reopening the interface, which resets the
+MAC, does. The switch back to SGMII works. Schedule a close and reopen
+of the interface when the resolved interface changes to 2500BASE-X.
+---
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-qcom-ethqos.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-qcom-ethqos.c
+@@ -7,6 +7,8 @@
+ #include <linux/platform_device.h>
+ #include <linux/phy.h>
+ #include <linux/phy/phy.h>
++#include <linux/rtnetlink.h>
++#include <linux/workqueue.h>
+ 
+ #include "stmmac.h"
+ #include "stmmac_platform.h"
+@@ -99,6 +101,7 @@
+ 
+ struct qcom_ethqos {
+ 	struct platform_device *pdev;
++	struct work_struct restart_work;
+ 	void __iomem *rgmii_base;
+ 	struct clk *link_clk;
+ 	struct phy *serdes_phy;
+@@ -646,6 +649,8 @@
+ 				    phy_interface_t interface)
+ {
+ 	struct qcom_ethqos *ethqos = priv;
++	bool to_2500basex = interface == PHY_INTERFACE_MODE_2500BASEX &&
++			    ethqos->phy_mode != PHY_INTERFACE_MODE_2500BASEX;
+ 	int ret = 0;
+ 
+ 	qcom_ethqos_set_sgmii_loopback(ethqos, false);
+@@ -661,9 +666,38 @@
+ 		ret = phy_set_mode_ext(ethqos->serdes_phy, PHY_MODE_ETHERNET,
+ 				       interface);
+ 
++	/* After a switch from SGMII to 2500BASE-X on a running interface the
++	 * MAC passes no frames until it is reset, which opening the interface
++	 * does; the reverse switch is fine.
++	 */
++	if (!ret && to_2500basex && netif_running(ndev))
++		schedule_work(&ethqos->restart_work);
++
+ 	return ret;
+ }
+ 
++static void ethqos_restart_work(struct work_struct *work)
++{
++	struct qcom_ethqos *ethqos = container_of(work, struct qcom_ethqos,
++						  restart_work);
++	struct net_device *ndev = platform_get_drvdata(ethqos->pdev);
++
++	rtnl_lock();
++	if (netif_running(ndev)) {
++		netdev_info(ndev, "restarting after the switch to 2500BASE-X\n");
++		dev_close(ndev);
++		dev_open(ndev, NULL);
++	}
++	rtnl_unlock();
++}
++
++static void ethqos_cancel_restart(void *data)
++{
++	struct qcom_ethqos *ethqos = data;
++
++	cancel_work_sync(&ethqos->restart_work);
++}
++
+ static int ethqos_clks_config(void *priv, bool enabled)
+ {
+ 	struct qcom_ethqos *ethqos = priv;
+@@ -790,6 +824,11 @@
+ 		return dev_err_probe(dev, PTR_ERR(ethqos->serdes_phy),
+ 				     "Failed to get serdes phy\n");
+ 
++	INIT_WORK(&ethqos->restart_work, ethqos_restart_work);
++	ret = devm_add_action_or_reset(dev, ethqos_cancel_restart, ethqos);
++	if (ret)
++		return ret;
++
+ 	ethqos_set_clk_tx_rate(ethqos, NULL, plat_dat->phy_interface,
+ 			       SPEED_1000);
+ 

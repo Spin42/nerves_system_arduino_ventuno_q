@@ -1,0 +1,21 @@
+#!/bin/sh
+#
+# Runs before the Erlang VM starts (erlinit --pre-run-exec).
+
+# GRUB goes back to the previous slot when an update boots without being
+# validated; record that in the Nerves environment.
+fwup -a -q -U -i /usr/share/fwup/ops.fw -t sync-fallback -d /dev/mmcblk0 2>/dev/null
+
+# The Ethernet MAC address is not stored on the board. Derive a locally
+# administered one from the SoC serial number so it stays the same across boots.
+serial=$(cat /sys/devices/soc0/serial_number 2>/dev/null)
+if [ -n "$serial" ] && [ -e /sys/class/net/eth0 ]; then
+    mac=$(printf '02:4e:%02x:%02x:%02x:%02x' \
+        $(( (serial >> 24) & 0xff )) $(( (serial >> 16) & 0xff )) \
+        $(( (serial >> 8) & 0xff )) $(( serial & 0xff )))
+    ip link set dev eth0 address "$mac"
+fi
+
+/usr/sbin/ventuno-q-eth-watch < /dev/null > /dev/null 2>&1 &
+
+exit 0

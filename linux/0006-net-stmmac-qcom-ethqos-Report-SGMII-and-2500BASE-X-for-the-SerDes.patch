@@ -1,0 +1,39 @@
+From: Loïc Vigneron <loic@spin42.com>
+Subject: [PATCH] net: stmmac: qcom-ethqos: Report SGMII and 2500BASE-X for the SerDes
+
+With a SerDes, the glue only reports the phy-mode from the device tree
+to phylink. A PHY such as the QCA8081 uses 2500BASE-X at 2.5 Gbps and
+SGMII below, so with phy-mode "2500base-x" phylink limits it to
+2.5 Gbps and the link never comes up on a 1 Gbps partner. Report both
+interfaces; ethqos_mac_finish_serdes() already reconfigures the SerDes
+for the one phylink resolves.
+---
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-qcom-ethqos.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-qcom-ethqos.c
+@@ -593,6 +593,18 @@
+ 	ethqos_pcs_set_inband(ethqos, interface == PHY_INTERFACE_MODE_SGMII);
+ }
+ 
++/* The SerDes runs SGMII up to 1 Gbps and 2500BASE-X at 2.5 Gbps, and a PHY
++ * such as the QCA8081 switches between them with the link speed.
++ * ethqos_mac_finish_serdes() reconfigures the SerDes for the resolved mode.
++ */
++static void ethqos_get_interfaces_serdes(struct stmmac_priv *priv,
++					 void *bsp_priv,
++					 unsigned long *interfaces)
++{
++	__set_bit(PHY_INTERFACE_MODE_SGMII, interfaces);
++	__set_bit(PHY_INTERFACE_MODE_2500BASEX, interfaces);
++}
++
+ static int qcom_ethqos_serdes_powerup(struct net_device *ndev, void *priv)
+ {
+ 	struct qcom_ethqos *ethqos = priv;
+@@ -739,6 +751,7 @@
+ 	case PHY_INTERFACE_MODE_SGMII:
+ 		plat_dat->fix_mac_speed = ethqos_fix_mac_speed_sgmii;
+ 		plat_dat->mac_finish = ethqos_mac_finish_serdes;
++		plat_dat->get_interfaces = ethqos_get_interfaces_serdes;
+ 		break;
+ 	default:
+ 		dev_err(dev, "Unsupported phy mode %s\n",

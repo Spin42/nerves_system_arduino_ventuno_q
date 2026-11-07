@@ -1,0 +1,40 @@
+#!/bin/busybox sh
+#
+# Init of the VENTUNO Q installer initramfs: writes the Nerves firmware in
+# /install.fw to the eMMC with the fwup of its own root filesystem, removes
+# the installer from the ESP and reboots into Nerves.
+
+/bin/busybox --install -s /bin
+mkdir -p /proc /sys /dev /rootfs /esp
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev
+
+fail() {
+  echo "=== nerves-install: FAILED: $*"
+  exec sh
+}
+
+echo "=== nerves-install: started"
+for _ in $(seq 1 20); do
+  [ -b /dev/mmcblk0p72 ] && break
+  sleep 1
+done
+[ -b /dev/mmcblk0p72 ] || fail "no /dev/mmcblk0p72: the Nerves partition table is missing"
+
+unzip -p /install.fw data/rootfs.img > /rootfs.img || fail "extracting the root filesystem"
+mount -o loop,ro /rootfs.img /rootfs || fail "mounting the root filesystem"
+mount -t tmpfs tmpfs /rootfs/tmp
+mount -o bind /dev /rootfs/dev
+mount -o bind /proc /rootfs/proc
+mount -o bind /sys /rootfs/sys
+cp /install.fw /rootfs/tmp/install.fw
+
+echo "=== nerves-install: writing the firmware"
+chroot /rootfs /usr/bin/fwup -a -i /tmp/install.fw -t complete -d /dev/mmcblk0 || fail "fwup"
+
+mount -t vfat /dev/mmcblk0p69 /esp && rm -rf /esp/nerves-install && umount /esp
+
+echo "=== nerves-install: done, rebooting into Nerves"
+sync
+reboot -f

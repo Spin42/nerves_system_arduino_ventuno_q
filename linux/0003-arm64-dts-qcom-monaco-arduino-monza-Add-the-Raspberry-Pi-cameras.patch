@@ -1,0 +1,234 @@
+From: Loïc Vigneron <loic@spin42.com>
+Subject: [PATCH] arm64: dts: qcom: monaco-arduino-monza: Add the Raspberry Pi cameras
+
+Two Raspberry Pi Global Shutter Cameras (IMX296) on J3_2 and J3_3 and a
+Raspberry Pi HQ Camera (IMX477) on J3_1, each on its own CCI bus and
+CSIPHY. The modules carry their own oscillators; pin 17 of each
+connector powers its module on.
+
+The connectors' I2C lines pass through TXS0108 level translators with
+10 kOhm pull-ups; the IMX296 does not answer through them at 400 kHz and
+does at 100 kHz, the rate Raspberry Pi boards use, so the three buses
+run at 100 kHz. The CSI0 and CSI1 lanes go through TS3DV642 switches
+that route them to J3_2 and J3_3 or to the JMEDIA header; GPIO 24 and
+41 select the connectors.
+---
+--- a/arch/arm64/boot/dts/qcom/monaco-arduino-monza.dts
++++ b/arch/arm64/boot/dts/qcom/monaco-arduino-monza.dts
+@@ -591,3 +591,216 @@
+ 
+ 	status = "okay";
+ };
++
++/*
++ * Raspberry Pi cameras on the three CSI connectors. Each module carries its
++ * own oscillator and is powered on by pin 17 of its connector.
++ *
++ *   J3_2 (Camera 0): Global Shutter Camera (IMX296), CSIPHY0, CCI0 bus 0
++ *   J3_3 (Camera 1): Global Shutter Camera (IMX296), CSIPHY1, CCI1 bus 0
++ *   J3_1 (Camera 2): HQ Camera (IMX477), CSIPHY2, CCI2 bus 0
++ */
++/ {
++	cam0_clk: cam0-clk {
++		compatible = "fixed-clock";
++		#clock-cells = <0>;
++		clock-frequency = <54000000>;
++	};
++
++	cam1_clk: cam1-clk {
++		compatible = "fixed-clock";
++		#clock-cells = <0>;
++		clock-frequency = <54000000>;
++	};
++
++	cam2_clk: cam2-clk {
++		compatible = "fixed-clock";
++		#clock-cells = <0>;
++		clock-frequency = <24000000>;
++	};
++
++	vreg_cam0: regulator-cam0 {
++		compatible = "regulator-fixed";
++		regulator-name = "vreg_cam0";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		gpio = <&tlmm 64 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		startup-delay-us = <300000>;
++		/*
++		 * The Global Shutter Camera needs pin 17 driven harder than the
++		 * board's TXS0104 holds it; with a pull-up added on the camera,
++		 * the line must never be driven low.
++		 */
++		regulator-always-on;
++	};
++
++	vreg_cam1: regulator-cam1 {
++		compatible = "regulator-fixed";
++		regulator-name = "vreg_cam1";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		gpio = <&tlmm 75 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		startup-delay-us = <300000>;
++		regulator-always-on;
++	};
++
++	vreg_cam2: regulator-cam2 {
++		compatible = "regulator-fixed";
++		regulator-name = "vreg_cam2";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		gpio = <&tlmm 82 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		startup-delay-us = <300000>;
++	};
++};
++
++/* Route the CSI0 and CSI1 lanes to J3_2 and J3_3 rather than JMEDIA. */
++&tlmm {
++	cam0-mipi-mux-hog {
++		gpio-hog;
++		gpios = <24 GPIO_ACTIVE_HIGH>;
++		output-high;
++		line-name = "CAM0_MIPI_MUX_SEL";
++	};
++
++	cam1-mipi-mux-hog {
++		gpio-hog;
++		gpios = <41 GPIO_ACTIVE_HIGH>;
++		output-high;
++		line-name = "CAM1_MIPI_MUX_SEL";
++	};
++};
++
++&camss {
++	vdda-phy-supply = <&vreg_l4a>;
++	vdda-pll-supply = <&vreg_l5a>;
++
++	status = "okay";
++
++	ports {
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		port@0 {
++			reg = <0>;
++
++			csiphy0_ep: endpoint {
++				data-lanes = <0>;
++				remote-endpoint = <&cam0_ep>;
++			};
++		};
++
++		port@1 {
++			reg = <1>;
++
++			csiphy1_ep: endpoint {
++				data-lanes = <0>;
++				remote-endpoint = <&cam1_ep>;
++			};
++		};
++
++		port@2 {
++			reg = <2>;
++
++			csiphy2_ep: endpoint {
++				data-lanes = <0 1>;
++				remote-endpoint = <&cam2_ep>;
++			};
++		};
++	};
++};
++
++&cci0 {
++	pinctrl-0 = <&cci0_0_default>;
++	pinctrl-1 = <&cci0_0_sleep>;
++
++	status = "okay";
++};
++
++&cci0_i2c0 {
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	/* The board's I2C level translators do not pass 400 kHz to the IMX296. */
++	clock-frequency = <100000>;
++
++	camera@1a {
++		compatible = "sony,imx296";
++		reg = <0x1a>;
++
++		clocks = <&cam0_clk>;
++		clock-names = "inck";
++
++		avdd-supply = <&vreg_cam0>;
++
++		port {
++			cam0_ep: endpoint {
++				data-lanes = <1>;
++				link-frequencies = /bits/ 64 <594000000>;
++				remote-endpoint = <&csiphy0_ep>;
++			};
++		};
++	};
++};
++
++&cci1_i2c0 {
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	clock-frequency = <100000>;
++
++	camera@1a {
++		compatible = "sony,imx296";
++		reg = <0x1a>;
++
++		clocks = <&cam1_clk>;
++		clock-names = "inck";
++
++		avdd-supply = <&vreg_cam1>;
++
++		port {
++			cam1_ep: endpoint {
++				data-lanes = <1>;
++				link-frequencies = /bits/ 64 <594000000>;
++				remote-endpoint = <&csiphy1_ep>;
++			};
++		};
++	};
++};
++
++&cci2 {
++	pinctrl-0 = <&cci2_0_default>;
++	pinctrl-1 = <&cci2_0_sleep>;
++
++	status = "okay";
++};
++
++&cci2_i2c0 {
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	clock-frequency = <100000>;
++
++	camera@1a {
++		compatible = "sony,imx477";
++		reg = <0x1a>;
++
++		clocks = <&cam2_clk>;
++		clock-names = "xclk";
++
++		VANA-supply = <&vreg_cam2>;
++
++		port {
++			cam2_ep: endpoint {
++				clock-lanes = <0>;
++				data-lanes = <1 2>;
++				clock-noncontinuous;
++				link-frequencies = /bits/ 64 <450000000>;
++				remote-endpoint = <&csiphy2_ep>;
++			};
++		};
++	};
++};

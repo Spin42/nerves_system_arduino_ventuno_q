@@ -1,0 +1,40 @@
+#!/bin/sh
+#
+# Runs a QNN model on the Hexagon NPU (HTP backend) with a QAIRT runtime
+# copied onto the board, which the system does not ship.
+#
+# Usage: npu-check [qairt-dir] <model.so|model.bin> [qnn-net-run arguments...]
+#
+# <qairt-dir> holds QAIRT's aarch64 libraries and qnn-net-run (bin/ and lib/
+# of an aarch64-oe-linux-gcc* target) and lib/hexagon-v75/unsigned.
+
+# The runtime defaults to /opt/qairt, where scripts/fetch-qairt.sh puts it.
+if [ -d "${1:-}" ]; then
+  qairt=$1
+  shift
+else
+  qairt=/opt/qairt
+fi
+
+if [ "$#" -lt 1 ]; then
+  echo "Usage: npu-check [qairt-dir] <model> [qnn-net-run arguments...]" >&2
+  exit 1
+fi
+
+model=$1
+shift
+
+if [ ! -f "$qairt/lib/libQnnHtp.so" ] || [ ! -x "$qairt/bin/qnn-net-run" ]; then
+  echo "QAIRT runtime not found in $qairt: expected lib/libQnnHtp.so and bin/qnn-net-run" >&2
+  exit 2
+fi
+
+case "$model" in
+  *.bin) model_option=--retrieve_context ;;
+  *) model_option=--model ;;
+esac
+
+export LD_LIBRARY_PATH="$qairt/lib:${LD_LIBRARY_PATH:-}"
+export ADSP_LIBRARY_PATH="$qairt/lib/hexagon-v75/unsigned;/usr/share/qcom/qcs8300/Arduino/Monza/dsp/cdsp"
+
+exec "$qairt/bin/qnn-net-run" --backend "$qairt/lib/libQnnHtp.so" "$model_option" "$model" "$@"

@@ -1,0 +1,155 @@
+name: build + release
+
+# Builds the Nerves system and attaches the portable tarball to the release
+# of the pushed v* tag. Pull requests and manual runs build and upload the
+# tarball as a workflow artifact only.
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  # Mix refuses to cross-compile across major OTP versions, so the host OTP
+  # matches the one nerves_system_br ships on the target.
+  ERLANG_VERSION: "29.1.2"
+  ELIXIR_VERSION: "1.20.4-otp-29"
+  NERVES_BOOTSTRAP_VERSION: "1.17.3"
+  MIX_TARGET: arduino_ventuno_q
+
+jobs:
+  # The unit tests don't need the system: NERVES_ENV_DISABLED stops the
+  # nerves_package compiler building it, and NERVES_PRECOMPILE stops Nerves
+  # looking for a system artifact.
+  test:
+    runs-on: ubuntu-24.04
+    env:
+      NERVES_ENV_DISABLED: 1
+      NERVES_PRECOMPILE: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{ env.ERLANG_VERSION }}
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+      - run: mix archive.install --force hex nerves_bootstrap ${{ env.NERVES_BOOTSTRAP_VERSION }}
+      - run: mix deps.get
+      - run: mix format --check-formatted
+      - run: mix test
+
+  build:
+    needs: test
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # The Buildroot output reaches about 30 GB; the runner's root disk
+      # only has room once its preinstalled SDKs are removed, and the
+      # build itself runs on /mnt.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo mkdir -p /mnt/nerves /mnt/artifacts
+          sudo chown "$USER" /mnt/nerves /mnt/artifacts
+          ln -s /mnt/nerves "$HOME/.nerves"
+          ln -s /mnt/artifacts .nerves
+          df -h / /mnt
+
+      - name: Install Buildroot host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            git build-essential bc cmake cvs wget curl mercurial \
+            python3 python3-aiohttp python3-flake8 python3-ijson \
+            python3-nose2 python3-pexpect python3-pip python3-requests \
+            rsync subversion unzip gawk jq squashfs-tools libssl-dev \
+            automake autoconf libncurses5-dev libtool
+
+      - name: Install fwup
+        run: |
+          wget -q https://github.com/fwup-home/fwup/releases/download/v1.16.0/fwup_1.16.0_amd64.deb
+          sudo apt-get install -y ./fwup_1.16.0_amd64.deb
+
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{ env.ERLANG_VERSION }}
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+
+      - name: Install Hex, Rebar and nerves_bootstrap
+        run: |
+          mix local.hex --force
+          mix local.rebar --force
+          mix archive.install --force hex nerves_bootstrap ${{ env.NERVES_BOOTSTRAP_VERSION }}
+
+      - name: Cache Buildroot source downloads
+        uses: actions/cache@v4
+        with:
+          path: /mnt/nerves/dl
+          key: nerves-dl-${{ hashFiles('nerves_defconfig', 'mix.lock') }}
+          restore-keys: nerves-dl-
+
+      - name: Fetch Mix dependencies
+        run: mix deps.get
+
+      # On a fresh runner Nerves resolves its artifacts only after it has
+      # built the system, then fails because the toolchain is missing; any
+      # Mix task that loads the Nerves environment starts that build.
+      - name: Fetch the Nerves toolchain
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          name=nerves_toolchain_aarch64_nerves_linux_gnu
+          version=$(cat "deps/$name/VERSION")
+          dest="$HOME/.nerves/artifacts/$name-linux_x86_64-$version"
+          gh release download "v$version" --repo nerves-project/toolchains \
+            --pattern "$name-linux_x86_64-$version-*.tar.xz" --dir "$RUNNER_TEMP/toolchain"
+          tarball=$(ls "$RUNNER_TEMP"/toolchain/*.tar.xz)
+          mkdir -p "$dest"
+          tar -xJf "$tarball" -C "$dest" --strip-components=1
+          # Nerves writes CHECKSUM itself after a download and only uses an
+          # artifact whose CHECKSUM matches; the asset name carries its prefix.
+          checksum=$(elixir .github/scripts/toolchain_checksum.exs "deps/$name")
+          case "$(basename "$tarball")" in
+            *"-${checksum:0:7}.tar.xz") ;;
+            *) echo "checksum $checksum does not match $tarball" >&2; exit 1 ;;
+          esac
+          echo "$checksum" > "$dest/CHECKSUM"
+
+      - name: Build the Nerves system
+        timeout-minutes: 240
+        run: |
+          export BR2_JLEVEL="$(nproc)"
+          mix compile
+
+      - name: Package the portable tarball
+        run: mix nerves.artifact
+
+      - name: Locate the portable tarball
+        id: artifact
+        run: |
+          path=$(ls ${{ github.event.repository.name }}-portable-*.tar.gz \
+                    .nerves/artifacts/${{ github.event.repository.name }}-portable-*.tar.gz \
+                    2>/dev/null | head -1)
+          test -n "$path" || { echo "no tarball found" >&2; ls -la . .nerves/artifacts/; exit 1; }
+          echo "path=$path" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "$path")" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: ${{ steps.artifact.outputs.path }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Attach the tarball to the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.artifact.outputs.path }}
+          fail_on_unmatched_files: true

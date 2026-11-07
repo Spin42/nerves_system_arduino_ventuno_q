@@ -1,0 +1,63 @@
+From 05b3ea7346e3ae2f43927faa0949c29c08d95036 Mon Sep 17 00:00:00 2001
+From: Bartosz Golaszewski <bartosz.golaszewski@oss.qualcomm.com>
+Date: Wed, 14 Oct 2026 14:36:43 +0200
+Subject: [PATCH] net: stmmac: qcom-ethqos: update phy_mode to the resolved
+ interface in mac_finish()
+
+ethqos->phy_mode is read by serdes_powerup() and
+qcom_ethqos_set_sgmii_loopback() to configure the SerDes and its
+wrapper for the correct interface. It is set once at probe from the DT
+phy-mode property and never updated.
+
+phylink resolves the actual runtime interface and passes it to the
+mac_finish() callback. On platforms that only ever operate at one speed
+these two values are always the same, but when the interface changes
+at runtime - for example switching between SGMII and 2500BASE-X - the
+stored value becomes stale. The next serdes_powerup() call, on
+a subsequent link cycle, then reinitializes the SerDes to the wrong mode.
+
+Update ethqos->phy_mode from the interface argument in
+ethqos_mac_finish_serdes() so that it always reflects the last
+resolved interface.
+
+With that, we now update the phy_mode to the runtime-resolved interface,
+so any subsequent resume with a 1G SGMII link skips the loopback setup
+and the DMA reset hangs. To remedy this, extend the guard to include
+PHY_INTERFACE_MODE_SGMII.
+
+Upstream: https://git.kernel.org/torvalds/c/05b3ea7346e3ae2f43927faa0949c29c08d95036
+Signed-off-by: Bartosz Golaszewski <bartosz.golaszewski@oss.qualcomm.com>
+Reviewed-by: Mohd Ayaan Anwar <mohd.anwar@oss.qualcomm.com>
+Link: https://patch.msgid.link/20261014-qcom-sa8255p-emac-v16-4-0266c2ead980@oss.qualcomm.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+---
+ drivers/net/ethernet/stmicro/stmmac/dwmac-qcom-ethqos.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-qcom-ethqos.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-qcom-ethqos.c
+index e2e611a4d2c06b..f7cc46d86591a2 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-qcom-ethqos.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-qcom-ethqos.c
+@@ -190,7 +190,8 @@ static void
+ qcom_ethqos_set_sgmii_loopback(struct qcom_ethqos *ethqos, bool enable)
+ {
+ 	if (!ethqos->needs_sgmii_loopback ||
+-	    ethqos->phy_mode != PHY_INTERFACE_MODE_2500BASEX)
++	    (ethqos->phy_mode != PHY_INTERFACE_MODE_2500BASEX &&
++	     ethqos->phy_mode != PHY_INTERFACE_MODE_SGMII))
+ 		return;
+ 
+ 	rgmii_updatel(ethqos,
+@@ -637,6 +638,12 @@ static int ethqos_mac_finish_serdes(struct net_device *ndev, void *priv,
+ 
+ 	qcom_ethqos_set_sgmii_loopback(ethqos, false);
+ 
++	/* The interface mode is only known once phylink has resolved it and
++	 * may change at runtime, so keep it in sync for later
++	 * serdes_powerup() and qcom_ethqos_set_sgmii_loopback() calls.
++	 */
++	ethqos->phy_mode = interface;
++
+ 	if (interface == PHY_INTERFACE_MODE_SGMII ||
+ 	    interface == PHY_INTERFACE_MODE_2500BASEX)
+ 		ret = phy_set_mode_ext(ethqos->serdes_phy, PHY_MODE_ETHERNET,
