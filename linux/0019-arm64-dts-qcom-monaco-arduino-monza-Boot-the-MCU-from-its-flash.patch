@@ -1,0 +1,28 @@
+From: Loïc Vigneron <loic@spin42.com>
+Subject: [PATCH] arm64: dts: qcom: monaco-arduino-monza: Boot the MCU from its flash
+
+GPIO 47 drives the STM32H5's BOOT0 through a level shifter. Left as an
+input, the shifter holds BOOT0 high once the board is up, so any reset of
+the MCU after power on, through NRST or its own, starts the ST ROM
+bootloader instead of the application in flash. Hold it low.
+---
+--- a/arch/arm64/boot/dts/qcom/monaco-arduino-monza.dts
++++ b/arch/arm64/boot/dts/qcom/monaco-arduino-monza.dts
+@@ -596,6 +596,17 @@
+ 	};
+ 
+ 	/*
++	 * The MCU's BOOT0, through a level shifter whose pull-ups would
++	 * otherwise hold it high: every MCU reset would start its ROM bootloader.
++	 */
++	mcu-boot0-hog {
++		gpio-hog;
++		gpios = <47 GPIO_ACTIVE_HIGH>;
++		output-low;
++		line-name = "MCU_BOOT0";
++	};
++
++	/*
+ 	 * Tells the MCU's loader that Linux is up: it plays the boot animation
+ 	 * on the LED matrix and holds the sketch until this line is high.
+ 	 */

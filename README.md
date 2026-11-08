@@ -183,8 +183,10 @@ the STM32H5:
 openocd -f /usr/share/ventuno-q/mcu-swd.cfg -c init -c "flash probe 0" -c shutdown
 ```
 
-A reset through NRST starts the STM32's ROM bootloader (USB DFU,
-`0483:df11`) rather than the loader; removing power brings the loader back.
+GPIO 47 drives the STM32's BOOT0 through a level shifter that holds it high
+when undriven; `linux/0019` holds it low so that any reset of the MCU starts
+the loader rather than ST's ROM bootloader (USB DFU, `0483:df11`, which
+`dfu-util` drives).
 
 ## GPU
 
