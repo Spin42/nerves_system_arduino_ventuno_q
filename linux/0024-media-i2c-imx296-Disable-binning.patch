@@ -1,0 +1,64 @@
+From: Loïc Vigneron <loic@spin42.com>
+Subject: [PATCH] media: i2c: imx296: Disable binning
+
+2x2 binning yields no usable image: on the Qualcomm CAMSS, a 728x544
+frame comes out as all 0xff and the VFE writes outside its buffer, and
+Raspberry Pi's driver disables it too. Stop offering the binned size, so
+the format always matches the crop.
+
+Upstream: https://github.com/raspberrypi/linux/blob/rpi-6.12.y/drivers/media/i2c/imx296.c
+---
+--- a/drivers/media/i2c/imx296.c
++++ b/drivers/media/i2c/imx296.c
+@@ -754,12 +754,12 @@
+ 
+ 	format = v4l2_subdev_state_get_format(state, fse->pad);
+ 
+-	if (fse->index >= 2 || fse->code != format->code)
++	if (fse->index >= 1 || fse->code != format->code)
+ 		return -EINVAL;
+ 
+-	fse->min_width = IMX296_PIXEL_ARRAY_WIDTH / (fse->index + 1);
++	fse->min_width = IMX296_PIXEL_ARRAY_WIDTH;
+ 	fse->max_width = fse->min_width;
+-	fse->min_height = IMX296_PIXEL_ARRAY_HEIGHT / (fse->index + 1);
++	fse->min_height = IMX296_PIXEL_ARRAY_HEIGHT;
+ 	fse->max_height = fse->min_height;
+ 
+ 	return 0;
+@@ -776,32 +776,9 @@
+ 	crop = v4l2_subdev_state_get_crop(state, fmt->pad);
+ 	format = v4l2_subdev_state_get_format(state, fmt->pad);
+ 
+-	/*
+-	 * Binning is only allowed when cropping is disabled according to the
+-	 * documentation. This should be double-checked.
+-	 */
+-	if (crop->width == IMX296_PIXEL_ARRAY_WIDTH &&
+-	    crop->height == IMX296_PIXEL_ARRAY_HEIGHT) {
+-		unsigned int width;
+-		unsigned int height;
+-		unsigned int hratio;
+-		unsigned int vratio;
+-
+-		/* Clamp the width and height to avoid dividing by zero. */
+-		width = clamp_t(unsigned int, fmt->format.width,
+-				crop->width / 2, crop->width);
+-		height = clamp_t(unsigned int, fmt->format.height,
+-				 crop->height / 2, crop->height);
+-
+-		hratio = DIV_ROUND_CLOSEST(crop->width, width);
+-		vratio = DIV_ROUND_CLOSEST(crop->height, height);
+-
+-		format->width = crop->width / hratio;
+-		format->height = crop->height / vratio;
+-	} else {
+-		format->width = crop->width;
+-		format->height = crop->height;
+-	}
++	/* Binning outputs no image: the format is always the crop. */
++	format->width = crop->width;
++	format->height = crop->height;
+ 
+ 	if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE)
+ 		imx296_update_hblank(sensor, format->width);

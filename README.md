@@ -311,6 +311,26 @@ v4l2-ctl -d /dev/video2 --stream-mmap --stream-count=10 --stream-to=/root/hq.raw
 The sensor's I2C bus number, in its entity name, can change between boots:
 `media-ctl -p` lists it.
 
+Each sensor's V4L2 subdevice exposes its controls (`v4l2-ctl -d
+/dev/v4l-subdevN -L` lists them with their ranges):
+
+| Control                              | IMX296 | IMX477 |
+| ------------------------------------ | ------ | ------ |
+| Exposure, analogue gain              | ✓      | ✓      |
+| Digital gain                         |        | ✓      |
+| Vertical blanking (frame length)     | ✓      | ✓      |
+| Horizontal and vertical flips        | ✓      | ✓      |
+| Test patterns                        | ✓      | ✓      |
+| Crop (`media-ctl` `crop:`)           | ✓      |        |
+| Sensor modes (format sizes)          | 1456×1088 | 4056×3040, 4056×2160, 2028×1520, 2028×1080, 1332×990 |
+
+Flips change the Bayer order of the format, and are refused while
+streaming. The IMX296 crops in steps of 4 pixels down to 96×88, which
+raises its frame rate. The IMX477 also takes the module parameters
+`dpc_enable` (on-sensor defect correction) and `fstrobe_enable`,
+`fstrobe_cont_trig`, `fstrobe_width` and `fstrobe_delay` (its flash
+strobe output).
+
 ### External trigger
 
 Both sensor drivers can take their frame timing from an external pulse, set

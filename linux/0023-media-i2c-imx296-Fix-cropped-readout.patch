@@ -1,0 +1,128 @@
+From: Loïc Vigneron <loic@spin42.com>
+Subject: [PATCH] media: i2c: imx296: Fix cropped readout
+
+A cropped readout needs MIPIC_AREA3W set to its height, and the sensor
+reads out no less than 96x88 pixels. The line length stays at HMAX
+whatever the crop, so the horizontal blanking now grows as the width
+shrinks, keeping the frame rate userspace computes right.
+
+Upstream: https://github.com/raspberrypi/linux/blob/rpi-6.12.y/drivers/media/i2c/imx296.c
+---
+--- a/drivers/media/i2c/imx296.c
++++ b/drivers/media/i2c/imx296.c
+@@ -155,9 +155,9 @@
+ #define IMX296_FID0_ROIPH1				IMX296_REG_16BIT(0x3310)
+ #define IMX296_FID0_ROIPV1				IMX296_REG_16BIT(0x3312)
+ #define IMX296_FID0_ROIWH1				IMX296_REG_16BIT(0x3314)
+-#define IMX296_FID0_ROIWH1_MIN				80
++#define IMX296_FID0_ROIWH1_MIN				96
+ #define IMX296_FID0_ROIWV1				IMX296_REG_16BIT(0x3316)
+-#define IMX296_FID0_ROIWV1_MIN				4
++#define IMX296_FID0_ROIWV1_MIN				88
+ 
+ #define IMX296_CM_HSST_STARTTMG				IMX296_REG_16BIT(0x4018)
+ #define IMX296_CM_HSST_ENDTMG				IMX296_REG_16BIT(0x401a)
+@@ -176,6 +176,7 @@
+ #define IMX296_CKREQSEL					IMX296_REG_8BIT(0x4101)
+ #define IMX296_CKREQSEL_HS				BIT(2)
+ #define IMX296_GTTABLENUM				IMX296_REG_8BIT(0x4114)
++#define IMX296_MIPIC_AREA3W				IMX296_REG_16BIT(0x4182)
+ #define IMX296_CTRL418C					IMX296_REG_8BIT(0x418c)
+ 
+ struct imx296_clk_params {
+@@ -429,10 +430,33 @@
+ 	.s_ctrl = imx296_s_ctrl,
+ };
+ 
++/*
++ * Horizontal blanking is controlled through the HMAX register, which contains
++ * a line length in INCK clock units. The INCK frequency is fixed to 74.25 MHz.
++ * The HMAX value is currently fixed to 1100, convert it to a number of pixels
++ * based on the nominal pixel rate. The line length does not depend on the
++ * crop, so the blanking grows as the width shrinks.
++ */
++static void imx296_update_hblank(struct imx296 *sensor, unsigned int width)
++{
++	unsigned int hblank = 1100 * 1188000000ULL / 10 / 74250000 - width;
++
++	if (!sensor->hblank) {
++		sensor->hblank = v4l2_ctrl_new_std(&sensor->ctrls,
++						   &imx296_ctrl_ops,
++						   V4L2_CID_HBLANK, hblank,
++						   hblank, 1, hblank);
++		if (sensor->hblank)
++			sensor->hblank->flags |= V4L2_CTRL_FLAG_READ_ONLY;
++	} else {
++		__v4l2_ctrl_modify_range(sensor->hblank, hblank, hblank, 1,
++					 hblank);
++	}
++}
++
+ static int imx296_ctrls_init(struct imx296 *sensor)
+ {
+ 	struct v4l2_fwnode_device_properties props;
+-	unsigned int hblank;
+ 	int ret;
+ 
+ 	ret = v4l2_fwnode_device_parse(sensor->dev, &props);
+@@ -447,19 +471,7 @@
+ 			  V4L2_CID_ANALOGUE_GAIN, IMX296_GAIN_MIN,
+ 			  IMX296_GAIN_MAX, 1, IMX296_GAIN_MIN);
+ 
+-	/*
+-	 * Horizontal blanking is controlled through the HMAX register, which
+-	 * contains a line length in INCK clock units. The INCK frequency is
+-	 * fixed to 74.25 MHz. The HMAX value is currently fixed to 1100,
+-	 * convert it to a number of pixels based on the nominal pixel rate.
+-	 */
+-	hblank = 1100 * 1188000000ULL / 10 / 74250000
+-	       - IMX296_PIXEL_ARRAY_WIDTH;
+-	sensor->hblank = v4l2_ctrl_new_std(&sensor->ctrls, &imx296_ctrl_ops,
+-					   V4L2_CID_HBLANK, hblank, hblank, 1,
+-					   hblank);
+-	if (sensor->hblank)
+-		sensor->hblank->flags |= V4L2_CTRL_FLAG_READ_ONLY;
++	imx296_update_hblank(sensor, IMX296_PIXEL_ARRAY_WIDTH);
+ 
+ 	sensor->vblank = v4l2_ctrl_new_std(&sensor->ctrls, &imx296_ctrl_ops,
+ 					   V4L2_CID_VBLANK, 30,
+@@ -585,8 +597,11 @@
+ 		imx296_write(sensor, IMX296_FID0_ROIPV1, crop->top, &ret);
+ 		imx296_write(sensor, IMX296_FID0_ROIWH1, crop->width, &ret);
+ 		imx296_write(sensor, IMX296_FID0_ROIWV1, crop->height, &ret);
++		imx296_write(sensor, IMX296_MIPIC_AREA3W, crop->height, &ret);
+ 	} else {
+ 		imx296_write(sensor, IMX296_FID0_ROI, 0, &ret);
++		imx296_write(sensor, IMX296_MIPIC_AREA3W,
++			     IMX296_PIXEL_ARRAY_HEIGHT, &ret);
+ 	}
+ 
+ 	imx296_write(sensor, IMX296_CTRL0D,
+@@ -788,6 +803,9 @@
+ 		format->height = crop->height;
+ 	}
+ 
++	if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE)
++		imx296_update_hblank(sensor, format->width);
++
+ 	format->code = imx296_mbus_code(sensor);
+ 	format->field = V4L2_FIELD_NONE;
+ 	format->colorspace = V4L2_COLORSPACE_RAW;
+@@ -829,6 +847,7 @@
+ 				struct v4l2_subdev_state *state,
+ 				struct v4l2_subdev_selection *sel)
+ {
++	struct imx296 *sensor = to_imx296(sd);
+ 	struct v4l2_mbus_framefmt *format;
+ 	struct v4l2_rect *crop;
+ 	struct v4l2_rect rect;
+@@ -864,6 +883,9 @@
+ 		format = v4l2_subdev_state_get_format(state, sel->pad);
+ 		format->width = rect.width;
+ 		format->height = rect.height;
++
++		if (sel->which == V4L2_SUBDEV_FORMAT_ACTIVE)
++			imx296_update_hblank(sensor, format->width);
+ 	}
+ 
+ 	*crop = rect;

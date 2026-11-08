@@ -1,0 +1,168 @@
+From: Loïc Vigneron <loic@spin42.com>
+Subject: [PATCH] media: i2c: imx296: Add horizontal and vertical flips
+
+The sensor reverses its readout in either direction through CTRL0E. Add
+the V4L2_CID_HFLIP and V4L2_CID_VFLIP controls, clustered so that one
+call sets both; on the colour sensor they change the Bayer order, which
+the format follows. The sensor ignores changes while streaming, so the
+controls are grabbed then.
+
+The unflipped colour sensor reads out RGGB, not the BGGR the driver
+reported: with BGGR, red and blue come out swapped.
+
+Upstream: https://github.com/raspberrypi/linux/blob/rpi-6.12.y/drivers/media/i2c/imx296.c
+---
+--- a/drivers/media/i2c/imx296.c
++++ b/drivers/media/i2c/imx296.c
+@@ -214,6 +214,8 @@
+ 	struct v4l2_ctrl_handler ctrls;
+ 	struct v4l2_ctrl *hblank;
+ 	struct v4l2_ctrl *vblank;
++	struct v4l2_ctrl *hflip;
++	struct v4l2_ctrl *vflip;
+ };
+ 
+ static inline struct imx296 *to_imx296(struct v4l2_subdev *sd)
+@@ -221,6 +223,30 @@
+ 	return container_of(sd, struct imx296, subdev);
+ }
+ 
++/* The colour sensor's Bayer order: unflipped, h flip, v flip, both flips. */
++static const u32 imx296_bayer_codes[] = {
++	MEDIA_BUS_FMT_SRGGB10_1X10,
++	MEDIA_BUS_FMT_SGRBG10_1X10,
++	MEDIA_BUS_FMT_SGBRG10_1X10,
++	MEDIA_BUS_FMT_SBGGR10_1X10,
++};
++
++static u32 imx296_flipped_mbus_code(const struct imx296 *sensor, bool hflip,
++				    bool vflip)
++{
++	if (sensor->mono)
++		return MEDIA_BUS_FMT_Y10_1X10;
++
++	return imx296_bayer_codes[(vflip ? 2 : 0) | (hflip ? 1 : 0)];
++}
++
++static u32 imx296_mbus_code(const struct imx296 *sensor)
++{
++	return imx296_flipped_mbus_code(sensor,
++					sensor->hflip && sensor->hflip->cur.val,
++					sensor->vflip && sensor->vflip->cur.val);
++}
++
+ static int imx296_read(struct imx296 *sensor, u32 addr)
+ {
+ 	u8 data[3] = { 0, 0, 0 };
+@@ -321,17 +347,23 @@
+ static int imx296_s_ctrl(struct v4l2_ctrl *ctrl)
+ {
+ 	struct imx296 *sensor = container_of(ctrl->handler, struct imx296, ctrls);
+-	const struct v4l2_mbus_framefmt *format;
++	struct v4l2_mbus_framefmt *format;
+ 	struct v4l2_subdev_state *state;
+ 	unsigned int vmax;
+ 	int ret = 0;
+ 
+-	if (!pm_runtime_get_if_in_use(sensor->dev))
+-		return 0;
+-
+ 	state = v4l2_subdev_get_locked_active_state(&sensor->subdev);
+ 	format = v4l2_subdev_state_get_format(state, 0);
+ 
++	/* The flips change the Bayer order, whether or not the sensor is on. */
++	if (ctrl->id == V4L2_CID_HFLIP)
++		format->code = imx296_flipped_mbus_code(sensor,
++							sensor->hflip->val,
++							sensor->vflip->val);
++
++	if (!pm_runtime_get_if_in_use(sensor->dev))
++		return 0;
++
+ 	switch (ctrl->id) {
+ 	case V4L2_CID_EXPOSURE:
+ 		/* Clamp the exposure value to VMAX. */
+@@ -349,6 +381,13 @@
+ 			     &ret);
+ 		break;
+ 
++	case V4L2_CID_HFLIP:
++		imx296_write(sensor, IMX296_CTRL0E,
++			     (sensor->vflip->val ? IMX296_CTRL0E_VREVERSE : 0) |
++			     (sensor->hflip->val ? IMX296_CTRL0E_HREVERSE : 0),
++			     &ret);
++		break;
++
+ 	case V4L2_CID_TEST_PATTERN:
+ 		if (ctrl->val) {
+ 			imx296_write(sensor, IMX296_PGHPOS, 8, &ret);
+@@ -400,7 +439,7 @@
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	v4l2_ctrl_handler_init(&sensor->ctrls, 9);
++	v4l2_ctrl_handler_init(&sensor->ctrls, 11);
+ 
+ 	v4l2_ctrl_new_std(&sensor->ctrls, &imx296_ctrl_ops,
+ 			  V4L2_CID_EXPOSURE, 1, 1048575, 1, 1104);
+@@ -440,6 +479,19 @@
+ 				     ARRAY_SIZE(imx296_test_pattern_menu) - 1,
+ 				     0, 0, imx296_test_pattern_menu);
+ 
++	sensor->hflip = v4l2_ctrl_new_std(&sensor->ctrls, &imx296_ctrl_ops,
++					  V4L2_CID_HFLIP, 0, 1, 1, 0);
++	sensor->vflip = v4l2_ctrl_new_std(&sensor->ctrls, &imx296_ctrl_ops,
++					  V4L2_CID_VFLIP, 0, 1, 1, 0);
++	if (sensor->hflip && sensor->vflip) {
++		/* One s_ctrl call sets both flips, with both new values. */
++		v4l2_ctrl_cluster(2, &sensor->hflip);
++		if (!sensor->mono) {
++			sensor->hflip->flags |= V4L2_CTRL_FLAG_MODIFY_LAYOUT;
++			sensor->vflip->flags |= V4L2_CTRL_FLAG_MODIFY_LAYOUT;
++		}
++	}
++
+ 	v4l2_ctrl_new_fwnode_properties(&sensor->ctrls, &imx296_ctrl_ops,
+ 					&props);
+ 
+@@ -622,6 +674,9 @@
+ 	if (!enable) {
+ 		ret = imx296_stream_off(sensor);
+ 
++		__v4l2_ctrl_grab(sensor->hflip, false);
++		__v4l2_ctrl_grab(sensor->vflip, false);
++
+ 		pm_runtime_put_autosuspend(sensor->dev);
+ 
+ 		goto unlock;
+@@ -643,6 +698,10 @@
+ 	if (ret)
+ 		goto err_pm;
+ 
++	/* The sensor ignores flip changes while streaming. */
++	__v4l2_ctrl_grab(sensor->hflip, true);
++	__v4l2_ctrl_grab(sensor->vflip, true);
++
+ unlock:
+ 	v4l2_subdev_unlock_state(state);
+ 
+@@ -667,8 +726,7 @@
+ 	if (code->index != 0)
+ 		return -EINVAL;
+ 
+-	code->code = sensor->mono ? MEDIA_BUS_FMT_Y10_1X10
+-		   : MEDIA_BUS_FMT_SBGGR10_1X10;
++	code->code = imx296_mbus_code(sensor);
+ 
+ 	return 0;
+ }
+@@ -730,8 +788,7 @@
+ 		format->height = crop->height;
+ 	}
+ 
+-	format->code = sensor->mono ? MEDIA_BUS_FMT_Y10_1X10
+-		     : MEDIA_BUS_FMT_SBGGR10_1X10;
++	format->code = imx296_mbus_code(sensor);
+ 	format->field = V4L2_FIELD_NONE;
+ 	format->colorspace = V4L2_COLORSPACE_RAW;
+ 	format->ycbcr_enc = V4L2_YCBCR_ENC_DEFAULT;
