@@ -2,7 +2,7 @@
 #
 # Routes the sound card's playback streams once the ADSP has registered it:
 # PCM 0 (MultiMedia1) to HDMI through the ADV7535 bridge and PCM 1
-# (MultiMedia2) to the MAX98091 headphone jack.
+# (MultiMedia2) to the MAX98091 codec's headphone output.
 
 set_control() {
     amixer -q -c 0 cset name="$1" "$2"

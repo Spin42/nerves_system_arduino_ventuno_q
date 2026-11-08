@@ -21,7 +21,7 @@ Dragonwing IQ-8275 (QCS8275) with an STM32H5F5 microcontroller.
 | Bluetooth      | QCA2066 over UART (`hci_uart`), `hci0`                             |
 | Fan, LEDs      | EMC2305 fan on the CPU thermal zone; PCA9635 for the 4 RGB LEDs    |
 | CAN            | 3× CAN FD on the STM32H5F5, as SocketCAN `can0` to `can2` (gs_usb) |
-| Audio          | HDMI through the ADV7535 bridge; the headphone jack is untested    |
+| Audio          | HDMI through the ADV7535 bridge; MAX98091 codec, untested          |
 | Display        | Not supported                                                      |
 
 See [docs/booting.md](docs/booting.md) for the boot chain and the eMMC layout,
@@ -145,7 +145,7 @@ ADSP has registered the card, about 15 seconds after power on:
 | PCM      | Stream      | LPASS port       | Output                         |
 | -------- | ----------- | ---------------- | ------------------------------ |
 | `hw:0,0` | MultiMedia1 | `LPI_MI2S_RX_4`  | HDMI, through the ADV7535      |
-| `hw:0,1` | MultiMedia2 | `LPI_MI2S_RX_0`  | Headphone jack, MAX98091 codec |
+| `hw:0,1` | MultiMedia2 | `LPI_MI2S_RX_0`  | MAX98091 headphone output      |
 
 ```sh
 aplay -D hw:0,0 file.wav
@@ -154,7 +154,9 @@ aplay -D hw:0,0 file.wav
 The HDMI audio comes from the ADV7535 DSI-to-HDMI bridge over I2S, not from
 the DisplayPort controller (`DISPLAY_PORT_RX_0` fails to start). The
 headphone output starts at `Headphone Volume` 15 (-17 dB); `amixer -c0`
-sets it from 0 to 31.
+sets it from 0 to 31. The board has no audio jack: the JMISC connector
+carries headphone (pins 36 to 42), line (32, 34) and earpiece (28, 30)
+outputs for an expansion board.
 
 ## Microcontroller and CAN
 
