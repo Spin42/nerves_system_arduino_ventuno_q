@@ -3,22 +3,32 @@
 # Starts or flashes the sketch on the STM32H5F5, over its SWD port.
 #
 #   ventuno-q-mcu [start]                 restart the sketch
-#   ventuno-q-mcu flash SKETCH [LOADER]   write the sketch (and the loader), then start it
+#   ventuno-q-mcu flash SKETCH [LOADER]   write a sketch, then start it
 #
 # Arduino's loader sits at 0x08000000 and the sketch at 0x08100000, as an
 # arduino-cli build of the arduino:zephyr:ventunoq board lays them out
-# (SKETCH is its .elf-zsk.bin, LOADER the core's zephyr-*.bin). An image
-# that is already in flash is not written again.
+# (SKETCH is its .elf-zsk.bin). The system ships the loader of the core
+# version sketches must be built with, and both commands write it when flash
+# holds another; LOADER replaces it. An image already in flash is not written
+# again.
 #
 # A sketch registers its Bridge methods when it starts, so it restarts with
 # each boot to register them with the router that boot starts. The loader
 # runs a sketch flagged to wait for its app only once a magic value is in
 # the MCU's backup SRAM.
 
+system_loader=/usr/share/ventuno-q/mcu-loader.bin
+
 log() {
     echo "ventuno-q-mcu: $*" > /dev/kmsg
 }
 
+# Writes FILE at ADDRESS unless flash already holds it.
+write_cmd() {
+    echo "if {[catch {flash verify_image $1 $2 bin}]} {flash write_image erase $1 $2 bin}"
+}
+
+# Runs OpenOCD's commands, then restarts the sketch.
 openocd_run() {
     out=$(openocd -f /usr/share/ventuno-q/mcu-swd.cfg -c init "$@" -c "reset halt" \
         -c resume -c "sleep 100" -c "mww 0x40036400 0xCAFFEEEE" \
@@ -36,23 +46,21 @@ openocd_run() {
 
 case "${1:-start}" in
 start)
-    openocd_run
+    if [ -f "$system_loader" ]; then
+        openocd_run -c "reset halt" -c "$(write_cmd "$system_loader" 0x08000000)"
+    else
+        openocd_run
+    fi
     ;;
 flash)
     sketch=$2
-    loader=$3
-    if [ ! -f "$sketch" ] || { [ -n "$loader" ] && [ ! -f "$loader" ]; }; then
+    loader=${3:-$system_loader}
+    if [ ! -f "$sketch" ] || [ ! -f "$loader" ]; then
         echo "usage: ventuno-q-mcu flash SKETCH [LOADER]" >&2
         exit 2
     fi
-    if [ -n "$loader" ]; then
-        openocd_run -c "reset halt" \
-            -c "if {[catch {flash verify_image $loader 0x08000000 bin}]} {flash write_image erase $loader 0x08000000 bin}" \
-            -c "if {[catch {flash verify_image $sketch 0x08100000 bin}]} {flash write_image erase $sketch 0x08100000 bin}"
-    else
-        openocd_run -c "reset halt" \
-            -c "if {[catch {flash verify_image $sketch 0x08100000 bin}]} {flash write_image erase $sketch 0x08100000 bin}"
-    fi
+    openocd_run -c "reset halt" -c "$(write_cmd "$loader" 0x08000000)" \
+        -c "$(write_cmd "$sketch" 0x08100000)"
     ;;
 *)
     echo "usage: ventuno-q-mcu [start] | flash SKETCH [LOADER]" >&2

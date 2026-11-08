@@ -178,20 +178,19 @@ ip link set can0 up
 candump can0
 ```
 
-`ventuno-q-mcu flash` writes a sketch and, optionally, the loader it was built
-against, then restarts it; an image already in flash is verified and not
-written again:
+The system ships the loader of Arduino's Zephyr core `arduino:zephyr` 1.1.0
+(`/usr/share/ventuno-q/mcu-loader.bin`), which `ventuno-q-mcu` writes at boot
+when flash holds another. Sketches link against the loader, so build them with
+that core version. `ventuno-q-mcu flash` writes a sketch, then restarts it; an
+image already in flash is verified and not written again:
 
 ```sh
 arduino-cli compile --fqbn arduino:zephyr:ventunoq --output-dir build .
-ventuno-q-mcu flash sketch.ino.elf-zsk.bin zephyr-arduino_ventuno_q_stm32h5f5xx.bin
+ventuno-q-mcu flash build/sketch.ino.elf-zsk.bin
 ```
 
-The loader is the `arduino:zephyr` core's `firmwares/` image; the sketch, built
-in the core's default dynamic mode, is linked against it, so both come from the
-same core version. [ArduinoRouterEx](https://github.com/Spin42/arduino_router_ex)
-talks to the sketch's Bridge from Elixir and installs sketches with this
-command.
+[ArduinoRouterEx](https://github.com/Spin42/arduino_router_ex) talks to the
+sketch's Bridge from Elixir and installs sketches with this command.
 
 The SWD port is wired to SoC GPIOs (SWCLK 71, SWDIO 70, NRST 78). The system
 includes STMicroelectronics' OpenOCD, as mainline OpenOCD does not support

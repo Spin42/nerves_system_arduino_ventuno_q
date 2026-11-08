@@ -1,0 +1,9 @@
+config BR2_PACKAGE_ARDUINO_ZEPHYR_LOADER
+	bool "arduino-zephyr-loader"
+	help
+	  The VENTUNO Q's STM32H5F5 loader from Arduino's Zephyr core
+	  (arduino:zephyr), which sketches built with the same core
+	  version link against. Installed as
+	  /usr/share/ventuno-q/mcu-loader.bin for ventuno-q-mcu.
+
+	  https://github.com/arduino/ArduinoCore-zephyr
