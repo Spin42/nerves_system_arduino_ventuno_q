@@ -1,0 +1,32 @@
+From: Loïc Vigneron <loic@spin42.com>
+Subject: [PATCH] arm64: dts: qcom: monaco-arduino-monza: Enable the MCU's USB link
+
+The STM32H5 microcontroller is a USB device on the second USB controller,
+which sees nothing until GPIO 7 of the PMIC at SID 2 is driven high, as
+the vendor device tree does.
+---
+--- a/arch/arm64/boot/dts/qcom/monaco-arduino-monza.dts
++++ b/arch/arm64/boot/dts/qcom/monaco-arduino-monza.dts
+@@ -708,10 +708,22 @@
+ 	remote-endpoint = <&ucsi_ss_ccg_p0>;
+ };
+ 
++&pmm8650au_1_gpios {
++	usb2_en_state: usb2-en-state {
++		pins = "gpio7";
++		function = "normal";
++		output-high;
++		power-source = <0>;
++	};
++};
++
+ /* Internally connected to the MCU (e.g. for DFU). */
+ &usb_2 {
+ 	dr_mode = "host";
+ 
++	pinctrl-0 = <&usb2_en_state>;
++	pinctrl-names = "default";
++
+ 	status = "okay";
+ };
+ 

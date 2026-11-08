@@ -1,0 +1,13 @@
+config BR2_PACKAGE_OPENOCD_STM32
+	bool "openocd-stm32"
+	depends on !BR2_PACKAGE_OPENOCD
+	depends on BR2_TOOLCHAIN_HEADERS_AT_LEAST_4_8 # libgpiod
+	select BR2_PACKAGE_JIMTCL
+	select BR2_PACKAGE_LIBGPIOD
+	help
+	  STMicroelectronics' OpenOCD, which supports the STM32H5 family
+	  that mainline OpenOCD lacks. Built with the linuxgpiod adapter
+	  to program the VENTUNO Q's STM32H5F5 over the SWD lines wired
+	  to SoC GPIOs.
+
+	  https://github.com/STMicroelectronics/OpenOCD

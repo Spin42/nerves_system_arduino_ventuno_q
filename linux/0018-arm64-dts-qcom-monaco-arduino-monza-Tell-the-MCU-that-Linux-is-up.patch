@@ -1,0 +1,27 @@
+From: Loïc Vigneron <loic@spin42.com>
+Subject: [PATCH] arm64: dts: qcom: monaco-arduino-monza: Tell the MCU that Linux is up
+
+Arduino's loader on the STM32H5 plays a boot animation on the LED matrix
+and does not start the sketch until GPIO 95, wired to its PG13, goes
+high.
+---
+--- a/arch/arm64/boot/dts/qcom/monaco-arduino-monza.dts
++++ b/arch/arm64/boot/dts/qcom/monaco-arduino-monza.dts
+@@ -595,6 +595,17 @@
+ 		line-name = "WLAN_EN";
+ 	};
+ 
++	/*
++	 * Tells the MCU's loader that Linux is up: it plays the boot animation
++	 * on the LED matrix and holds the sketch until this line is high.
++	 */
++	mcu-mpu-booted-hog {
++		gpio-hog;
++		gpios = <95 GPIO_ACTIVE_HIGH>;
++		output-high;
++		line-name = "MCU_MPU_BOOTED";
++	};
++
+ 	pcie0_default_state: pcie0-default-state {
+ 		wake-pins {
+ 			pins = "gpio0";

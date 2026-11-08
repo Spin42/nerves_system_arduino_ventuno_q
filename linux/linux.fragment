@@ -48,3 +48,9 @@ CONFIG_I2C_CHARDEV=y
 # Fan controller and RGB LED controller on the CCI1 bus 1
 CONFIG_SENSORS_EMC2305=y
 CONFIG_LEDS_PCA963X=y
+
+# The STM32 microcontroller exposes its CAN controllers over USB (gs_usb)
+CONFIG_CAN_GS_USB=m
+
+# OpenOCD's linuxgpiod adapter drives the STM32's SWD lines through the v1 ABI
+CONFIG_GPIO_CDEV_V1=y

@@ -20,7 +20,7 @@ Dragonwing IQ-8275 (QCS8275) with an STM32H5F5 microcontroller.
 | Wi-Fi          | QCA2066 over PCIe (ath11k), `wlan0`                                |
 | Bluetooth      | QCA2066 over UART (`hci_uart`), `hci0`                             |
 | Fan, LEDs      | EMC2305 fan on the CPU thermal zone; PCA9635 for the 4 RGB LEDs    |
-| CAN            | Not yet supported                                                  |
+| CAN            | 3× CAN FD on the STM32H5F5, as SocketCAN `can0` to `can2` (gs_usb) |
 | Audio          | HDMI through the ADV7535 bridge; the headphone jack is untested    |
 | Display        | Not supported                                                      |
 
@@ -155,6 +155,36 @@ The HDMI audio comes from the ADV7535 DSI-to-HDMI bridge over I2S, not from
 the DisplayPort controller (`DISPLAY_PORT_RX_0` fails to start). The
 headphone output starts at `Headphone Volume` 15 (-17 dB); `amixer -c0`
 sets it from 0 to 31.
+
+## Microcontroller and CAN
+
+The STM32H5F5 is a USB device of the SoC's second USB controller, which
+`linux/0017` powers. Arduino's firmware on it, a Zephyr loader and a sketch,
+exposes its three FDCAN controllers as a gs_usb adapter (`can0` to `can2`)
+and a CDC ACM serial port (`ttyACM0`) for Arduino's RPC bridge.
+
+The loader starts the sketch only once Linux signals it: GPIO 95 high, which
+`linux/0018` holds from boot (until then the LED matrix plays the boot
+animation), and a start value in the MCU's backup SRAM, which
+`ventuno-q-mcu` writes over SWD at boot. The CAN interfaces appear about
+13 seconds after power on.
+
+```sh
+ip link set can0 type can bitrate 500000
+ip link set can0 up
+candump can0
+```
+
+The SWD port is wired to SoC GPIOs (SWCLK 71, SWDIO 70, NRST 78). The system
+includes STMicroelectronics' OpenOCD, as mainline OpenOCD does not support
+the STM32H5:
+
+```sh
+openocd -f /usr/share/ventuno-q/mcu-swd.cfg -c init -c "flash probe 0" -c shutdown
+```
+
+A reset through NRST starts the STM32's ROM bootloader (USB DFU,
+`0483:df11`) rather than the loader; removing power brings the loader back.
 
 ## GPU
 

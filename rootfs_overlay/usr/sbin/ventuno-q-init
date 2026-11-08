@@ -19,5 +19,6 @@ if [ -n "$serial" ] && [ -e /sys/class/net/eth0 ]; then
 fi
 
 /usr/sbin/ventuno-q-audio < /dev/null > /dev/null 2>&1 &
+/usr/sbin/ventuno-q-mcu < /dev/null > /dev/null 2>&1 &
 
 exit 0
