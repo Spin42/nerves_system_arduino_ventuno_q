@@ -310,3 +310,36 @@ v4l2-ctl -d /dev/video2 --stream-mmap --stream-count=10 --stream-to=/root/hq.raw
 
 The sensor's I2C bus number, in its entity name, can change between boots:
 `media-ctl -p` lists it.
+
+### External trigger
+
+Both sensor drivers can take their frame timing from an external pulse, set
+by their `trigger_mode` module parameter before streaming:
+
+| Sensor | Parameter        | Input | Behaviour                                                              |
+| ------ | ---------------- | ----- | ---------------------------------------------------------------------- |
+| IMX296 | `trigger_mode=1` | XTR   | Each low pulse starts a frame; the exposure is the low time + 14.26 µs |
+| IMX477 | `trigger_mode=2` | XVS   | Each falling edge starts a readout; the exposure is the sensor's own   |
+
+```sh
+echo 1 > /sys/module/imx296/parameters/trigger_mode
+echo 2 > /sys/module/imx477/parameters/trigger_mode
+```
+
+A sensor node's `trigger-mode` device tree property, with the same values,
+overrides the parameter for that sensor.
+
+An IMX296 in trigger mode delivers no frame until XTR pulses. Give an IMX477
+a frame length slightly shorter than the trigger period. `linux/0021` adds
+the IMX296 mode; the IMX477 driver from `linux/0002` has it.
+
+Both inputs idle high. XTR takes 1.8 V logic and the HQ Camera's XVS pad at
+most 1.65 V: drive them from a 3.3 V output through a divider, and on a
+Global Shutter Camera with a Q2 transistor fitted, remove R11 first.
+
+The board's microcontroller can produce both pulses from one timer, at the
+same rate and phase, on D3 and D5 (`ArduinoRouterEx.PulseTrain` in
+[arduino_router_ex](https://github.com/Spin42/arduino_router_ex)). Those pins
+are inputs until the pulses start: the divider then pulls the camera input
+low, so drive the pin high first if the camera must not see a low trigger
+before it streams.

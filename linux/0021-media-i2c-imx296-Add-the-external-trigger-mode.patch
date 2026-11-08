@@ -1,0 +1,84 @@
+From: Loïc Vigneron <loic@spin42.com>
+Subject: [PATCH] media: i2c: imx296: Add the external trigger mode
+
+The Raspberry Pi Global Shutter Camera starts a frame on each low pulse
+of its XTR input, the pulse width setting the exposure, once the sensor
+is put in trigger mode. Add Raspberry Pi's trigger_mode module parameter
+(1 = XTR trigger) and its trigger-mode device tree property, which
+overrides the parameter for one sensor. Both are read when streaming
+starts.
+
+Upstream: https://github.com/raspberrypi/linux/blob/rpi-6.12.y/drivers/media/i2c/imx296.c
+---
+--- a/drivers/media/i2c/imx296.c
++++ b/drivers/media/i2c/imx296.c
+@@ -11,6 +11,7 @@
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/pm_runtime.h>
++#include <linux/property.h>
+ #include <linux/regmap.h>
+ #include <linux/regulator/consumer.h>
+ #include <linux/slab.h>
+@@ -20,6 +21,10 @@
+ #include <media/v4l2-fwnode.h>
+ #include <media/v4l2-subdev.h>
+ 
++static int trigger_mode;
++module_param(trigger_mode, int, 0644);
++MODULE_PARM_DESC(trigger_mode, "Set trigger mode: 0=default, 1=XTRIG");
++
+ #define IMX296_PIXEL_ARRAY_WIDTH			1456
+ #define IMX296_PIXEL_ARRAY_HEIGHT			1088
+ 
+@@ -200,6 +205,8 @@
+ 
+ 	const struct imx296_clk_params *clk_params;
+ 	bool mono;
++	/* The device tree's trigger-mode, or -1 to follow the module parameter. */
++	int trigger_mode;
+ 
+ 	struct v4l2_subdev subdev;
+ 	struct media_pad pad;
+@@ -574,10 +581,21 @@
+ 
+ static int imx296_stream_on(struct imx296 *sensor)
+ {
++	int mode = sensor->trigger_mode >= 0 ? sensor->trigger_mode : trigger_mode;
+ 	int ret = 0;
+ 
+ 	imx296_write(sensor, IMX296_CTRL00, 0, &ret);
+ 	usleep_range(2000, 5000);
++
++	/*
++	 * In trigger mode a low pulse on XTR starts each frame and its width
++	 * sets the exposure.
++	 */
++	imx296_write(sensor, IMX296_CTRL0B,
++		     mode == 1 ? IMX296_CTRL0B_TRIGEN : 0, &ret);
++	imx296_write(sensor, IMX296_LOWLAGTRG,
++		     mode == 1 ? IMX296_LOWLAGTRG_FAST : 0, &ret);
++
+ 	imx296_write(sensor, IMX296_CTRL0A, 0, &ret);
+ 
+ 	return ret;
+@@ -1012,6 +1030,7 @@
+ 	unsigned long clk_rate;
+ 	struct imx296 *sensor;
+ 	unsigned int i;
++	u32 mode;
+ 	int ret;
+ 
+ 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE_DATA)) {
+@@ -1065,6 +1084,11 @@
+ 	if (IS_ERR(sensor->regmap))
+ 		return PTR_ERR(sensor->regmap);
+ 
++	if (device_property_read_u32(sensor->dev, "trigger-mode", &mode))
++		sensor->trigger_mode = -1;
++	else
++		sensor->trigger_mode = mode;
++
+ 	/*
+ 	 * Enable power management. The driver supports runtime PM, but needs to
+ 	 * work when runtime PM is disabled in the kernel. To that end, power
