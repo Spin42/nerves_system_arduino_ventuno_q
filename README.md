@@ -132,15 +132,22 @@ under `/sys/class/leds`. They light only with push-pull outputs, which
 
 ## Audio
 
-The HDMI port is driven by an ADV7535 DSI-to-HDMI bridge, which takes its
-audio over I2S from LPASS port `LPI_MI2S_RX_4`, not from the DisplayPort
-controller (`DISPLAY_PORT_RX_0` fails to start). Route a playback stream to
-it, then play on the matching PCM:
+The sound card has two playback PCMs, which `ventuno-q-audio` routes once the
+ADSP has registered the card, about 15 seconds after power on:
+
+| PCM      | Stream      | LPASS port       | Output                         |
+| -------- | ----------- | ---------------- | ------------------------------ |
+| `hw:0,0` | MultiMedia1 | `LPI_MI2S_RX_4`  | HDMI, through the ADV7535      |
+| `hw:0,1` | MultiMedia2 | `LPI_MI2S_RX_0`  | Headphone jack, MAX98091 codec |
 
 ```sh
-amixer -c0 cset name='LPI_MI2S_RX_4 Audio Mixer MultiMedia1' 1
 aplay -D hw:0,0 file.wav
 ```
+
+The HDMI audio comes from the ADV7535 DSI-to-HDMI bridge over I2S, not from
+the DisplayPort controller (`DISPLAY_PORT_RX_0` fails to start). The
+headphone output starts at `Headphone Volume` 15 (-17 dB); `amixer -c0`
+sets it from 0 to 31.
 
 ## GPU
 

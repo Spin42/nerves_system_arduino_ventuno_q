@@ -1,0 +1,27 @@
+#!/bin/sh
+#
+# Routes the sound card's playback streams once the ADSP has registered it:
+# PCM 0 (MultiMedia1) to HDMI through the ADV7535 bridge and PCM 1
+# (MultiMedia2) to the MAX98091 headphone jack.
+
+set_control() {
+    amixer -q -c 0 cset name="$1" "$2"
+}
+
+i=0
+until set_control 'LPI_MI2S_RX_4 Audio Mixer MultiMedia1' 1 2>/dev/null; do
+    i=$((i + 1))
+    if [ "$i" -ge 120 ]; then
+        echo "ventuno-q-audio: no sound card after 120 s" > /dev/kmsg
+        exit 1
+    fi
+    sleep 1
+done
+
+set_control 'LPI_MI2S_RX_0 Audio Mixer MultiMedia2' 1
+set_control 'Left Headphone Mixer Left DAC Switch' on
+set_control 'Right Headphone Mixer Right DAC Switch' on
+set_control 'Headphone Left Switch' on
+set_control 'Headphone Right Switch' on
+set_control 'Headphone Switch' on
+set_control 'Headphone Volume' 15

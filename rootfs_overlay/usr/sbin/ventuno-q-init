@@ -18,4 +18,6 @@ if [ -n "$serial" ] && [ -e /sys/class/net/eth0 ]; then
     ip link set dev eth0 address "$mac"
 fi
 
+/usr/sbin/ventuno-q-audio < /dev/null > /dev/null 2>&1 &
+
 exit 0
