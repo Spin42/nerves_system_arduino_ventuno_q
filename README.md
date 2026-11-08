@@ -62,9 +62,10 @@ writes the firmware from RAM and reboots into Nerves. Ubuntu is erased.
 Follow the install on the debug UART. The first boot formats the 55 GB
 application partition, which takes about two minutes.
 
-After that, update the board with `mix upload`. To go back to Ubuntu, flash
-Arduino's image over EDL with Arduino's flasher: pull JCTL pin 2 low and
-reboot.
+After that, update the board with `mix upload`. `Nerves.Runtime.poweroff/0`
+turns the board off; it starts again when its power supply is reconnected.
+To go back to Ubuntu, flash Arduino's image over EDL with Arduino's flasher:
+pull JCTL pin 2 low and reboot.
 
 ## Debug UART
 
@@ -78,6 +79,12 @@ row nearer the board's top edge, with the ports facing you.
 | 6        | RX (host to board)           | TX            |
 | 2        | `FORCED_USB_BOOT_N` (EDL)    | –             |
 | 9        | +1.8 V out, do not connect   | –             |
+
+An adapter powered from the host drives the board's RX pin while the board is
+off and powers part of it through that pin. The next power on can then leave
+the PCIe USB 3 controller off the bus, with link training errors at its switch
+port. Connect the adapter once the board is on and disconnect it before
+removing power.
 
 ## Ethernet
 
