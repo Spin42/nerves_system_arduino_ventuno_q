@@ -16,7 +16,7 @@ Dragonwing IQ-8275 (QCS8275) with an STM32H5F5 microcontroller.
 | USB            | Ethernet gadget (`usb0`) on the USB-C port                         |
 | GPU            | Adreno 623: Mesa (freedreno, Turnip), Vulkan 1.3                   |
 | NPU            | Hexagon v75 CDSP over FastRPC; the QAIRT runtime is not included   |
-| Cameras        | CAMSS with two Raspberry Pi Global Shutter and one HQ camera       |
+| Cameras        | Raspberry Pi Global Shutter and HQ cameras on 3 CSI connectors     |
 | Wi-Fi          | QCA2066 over PCIe (ath11k), `wlan0`                                |
 | Bluetooth      | QCA2066 over UART (`hci_uart`), `hci0`                             |
 | Fan, LEDs      | EMC2305 fan on the CPU thermal zone; PCA9635 for the 4 RGB LEDs    |
@@ -234,27 +234,47 @@ framebuffer (`tty1`) and the debug UART; IEx stays on the UART.
 
 ## Cameras
 
-The device tree describes one camera per CSI connector, each on its own CCI
-bus:
+| Camera                             | Sensor | Device tree name |
+| ---------------------------------- | ------ | ---------------- |
+| Raspberry Pi Global Shutter Camera | IMX296 | `imx296`         |
+| Raspberry Pi HQ Camera             | IMX477 | `imx477`         |
 
-| Connector       | Camera                          | CSI     | I2C bus   |
-| --------------- | ------------------------------- | ------- | --------- |
-| J3_2 (Camera 0) | Raspberry Pi Global Shutter     | CSIPHY0 | CCI0 bus 0 |
-| J3_3 (Camera 1) | Raspberry Pi Global Shutter     | CSIPHY1 | CCI1 bus 0 |
-| J3_1 (Camera 2) | Raspberry Pi HQ                 | CSIPHY2 | CCI2 bus 0 |
+The board has three camera connectors with the Raspberry Pi 5 pinout: use
+22-to-15-pin Pi 5 camera cables. Each has its own CSIPHY and I2C bus:
 
-The connectors use the Raspberry Pi 5 pinout: use 22-to-15-pin Pi 5 camera
-cables. CAMSS delivers raw Bayer frames; there is no ISP.
+| Connector       | CSI     | I2C bus    |
+| --------------- | ------- | ---------- |
+| Camera 0 (J3_2) | CSIPHY0 | CCI0 bus 0 |
+| Camera 1 (J3_3) | CSIPHY1 | CCI1 bus 0 |
+| Camera 2 (J3_1) | CSIPHY2 | CCI2 bus 0 |
+
+Both sensors answer at the same I2C address, so the cameras cannot be probed:
+your project names the camera on each connector, Camera 0 to Camera 2, in
+`/boot/cameras.cfg`, through its rootfs overlay:
+
+```sh
+# rootfs_overlay/boot/cameras.cfg
+set ventuno_q_cameras=imx296-none-imx477
+```
+
+Each field is `none`, `imx296` or `imx477`. The system ships a device tree for
+every combination, built from one overlay per connector and sensor
+(`linux/0020`), and `/boot/slot.cfg` boots the one the file names. Without the
+file, the device tree describes no camera. Two Global Shutter Cameras on
+Camera 0 and Camera 1 with an HQ Camera on Camera 2 is the combination tested
+on hardware.
+
+CAMSS delivers raw Bayer frames; there is no ISP.
 
 The board passes each connector's I2C lines through a TXS0108 level
 translator and drives its enable pin (pin 17) through a TXS0104, which holds
-a high level only through about 10 kΩ. The device tree therefore runs the
-camera I2C buses at 100 kHz, as Raspberry Pi boards do, and routes the CSI0
-and CSI1 lanes to J3_2 and J3_3 rather than the JMEDIA header (GPIO 24 and
-41). The HQ Camera works as is. The Global Shutter Camera does not power up
-on that weak enable: give it a 1 kΩ resistor between pins 15 (3.3 V) and 11
-(enable) of its 15-pin connector. Camera 0 and Camera 1 stay powered so that
-the board never drives the enable low against that resistor.
+a high level only through about 10 kΩ. The camera I2C buses therefore run at
+100 kHz, as on Raspberry Pi boards, and the CSI0 and CSI1 lanes are routed to
+J3_2 and J3_3 rather than the JMEDIA header (GPIO 24 and 41). The HQ Camera
+works as is. The Global Shutter Camera does not power up on that weak enable:
+give it a 1 kΩ resistor between pins 15 (3.3 V) and 11 (enable) of its 15-pin
+connector. Its overlay keeps the connector powered so that the board never
+drives the enable low against that resistor.
 
 Mainline CAMSS links its sensors only once every sensor in the device tree has
 probed, so one missing camera disables all three. `linux/0008` links each
@@ -262,8 +282,8 @@ sensor as it probes: the cameras that are plugged in work.
 
 A sensor streams from its CSIPHY through any free CSID and the VFE of the same
 index: CSID 0 and 1 are full, 2 to 6 are lite, and all deliver raw frames
-(the lite ones need `linux/0009`). For the HQ camera at 1332×990 through
-CSID 0:
+(the lite ones need `linux/0009`). For an HQ Camera on Camera 2 at 1332×990
+through CSID 0:
 
 ```sh
 media-ctl -l '"msm_csiphy2":1->"msm_csid0":0[1],"msm_csid0":1->"msm_vfe0_rdi0":0[1]'

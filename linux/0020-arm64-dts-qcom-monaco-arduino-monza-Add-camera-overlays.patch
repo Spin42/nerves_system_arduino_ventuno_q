@@ -1,0 +1,401 @@
+From: Loïc Vigneron <loic@spin42.com>
+Subject: [PATCH] arm64: dts: qcom: monaco-arduino-monza: Add camera overlays
+
+One overlay per camera connector and sensor: the Raspberry Pi Global
+Shutter Camera (IMX296, one lane, 54 MHz oscillator) and HQ Camera
+(IMX477, two lanes, 24 MHz oscillator) on Camera 0, 1 or 2.
+---
+diff --color -uNr a/arch/arm64/boot/dts/qcom/Makefile b/arch/arm64/boot/dts/qcom/Makefile
+--- a/arch/arm64/boot/dts/qcom/Makefile
++++ b/arch/arm64/boot/dts/qcom/Makefile
+@@ -61,6 +61,12 @@
+ dtb-$(CONFIG_ARCH_QCOM)	+= milos-fairphone-fp6.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= milos-nothing-asteroids.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= monaco-arduino-monza.dtb
++dtb-$(CONFIG_ARCH_QCOM)	+= monaco-arduino-monza-cam0-imx296.dtbo
++dtb-$(CONFIG_ARCH_QCOM)	+= monaco-arduino-monza-cam0-imx477.dtbo
++dtb-$(CONFIG_ARCH_QCOM)	+= monaco-arduino-monza-cam1-imx296.dtbo
++dtb-$(CONFIG_ARCH_QCOM)	+= monaco-arduino-monza-cam1-imx477.dtbo
++dtb-$(CONFIG_ARCH_QCOM)	+= monaco-arduino-monza-cam2-imx296.dtbo
++dtb-$(CONFIG_ARCH_QCOM)	+= monaco-arduino-monza-cam2-imx477.dtbo
+ dtb-$(CONFIG_ARCH_QCOM)	+= monaco-evk.dtb
+ 
+ monaco-evk-camera-imx577-dtbs	:= monaco-evk.dtb monaco-evk-camera-imx577.dtbo
+diff --color -uNr a/arch/arm64/boot/dts/qcom/monaco-arduino-monza-cam0-imx296.dtso b/arch/arm64/boot/dts/qcom/monaco-arduino-monza-cam0-imx296.dtso
+--- a/arch/arm64/boot/dts/qcom/monaco-arduino-monza-cam0-imx296.dtso
++++ b/arch/arm64/boot/dts/qcom/monaco-arduino-monza-cam0-imx296.dtso
+@@ -0,0 +1,62 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * Raspberry Pi Global Shutter Camera (IMX296) on Camera 0 (J3_2).
++ *
++ * The camera powers up only with a 1 kOhm resistor between pins 15 (3.3 V)
++ * and 11 (enable) of its connector, so the connector stays powered: driving
++ * its enable low would fight that resistor.
++ */
++
++/dts-v1/;
++/plugin/;
++
++&{/} {
++	cam0_imx296_clk: cam0-imx296-clk {
++		compatible = "fixed-clock";
++		#clock-cells = <0>;
++		clock-frequency = <54000000>;
++	};
++};
++
++&vreg_cam0 {
++	regulator-always-on;
++};
++
++&camss {
++	ports {
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		port@0 {
++			reg = <0>;
++
++			csiphy0_ep: endpoint {
++				data-lanes = <0>;
++				remote-endpoint = <&cam0_ep>;
++			};
++		};
++	};
++};
++
++&cci0_i2c0 {
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	camera@1a {
++		compatible = "sony,imx296";
++		reg = <0x1a>;
++
++		clocks = <&cam0_imx296_clk>;
++		clock-names = "inck";
++
++		avdd-supply = <&vreg_cam0>;
++
++		port {
++			cam0_ep: endpoint {
++				data-lanes = <1>;
++				link-frequencies = /bits/ 64 <594000000>;
++				remote-endpoint = <&csiphy0_ep>;
++			};
++		};
++	};
++};
+diff --color -uNr a/arch/arm64/boot/dts/qcom/monaco-arduino-monza-cam0-imx477.dtso b/arch/arm64/boot/dts/qcom/monaco-arduino-monza-cam0-imx477.dtso
+--- a/arch/arm64/boot/dts/qcom/monaco-arduino-monza-cam0-imx477.dtso
++++ b/arch/arm64/boot/dts/qcom/monaco-arduino-monza-cam0-imx477.dtso
+@@ -0,0 +1,56 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * Raspberry Pi HQ Camera (IMX477) on Camera 0 (J3_2).
++ */
++
++/dts-v1/;
++/plugin/;
++
++&{/} {
++	cam0_imx477_clk: cam0-imx477-clk {
++		compatible = "fixed-clock";
++		#clock-cells = <0>;
++		clock-frequency = <24000000>;
++	};
++};
++
++&camss {
++	ports {
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		port@0 {
++			reg = <0>;
++
++			csiphy0_ep: endpoint {
++				data-lanes = <0 1>;
++				remote-endpoint = <&cam0_ep>;
++			};
++		};
++	};
++};
++
++&cci0_i2c0 {
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	camera@1a {
++		compatible = "sony,imx477";
++		reg = <0x1a>;
++
++		clocks = <&cam0_imx477_clk>;
++		clock-names = "xclk";
++
++		VANA-supply = <&vreg_cam0>;
++
++		port {
++			cam0_ep: endpoint {
++				clock-lanes = <0>;
++				data-lanes = <1 2>;
++				clock-noncontinuous;
++				link-frequencies = /bits/ 64 <450000000>;
++				remote-endpoint = <&csiphy0_ep>;
++			};
++		};
++	};
++};
+diff --color -uNr a/arch/arm64/boot/dts/qcom/monaco-arduino-monza-cam1-imx296.dtso b/arch/arm64/boot/dts/qcom/monaco-arduino-monza-cam1-imx296.dtso
+--- a/arch/arm64/boot/dts/qcom/monaco-arduino-monza-cam1-imx296.dtso
++++ b/arch/arm64/boot/dts/qcom/monaco-arduino-monza-cam1-imx296.dtso
+@@ -0,0 +1,62 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * Raspberry Pi Global Shutter Camera (IMX296) on Camera 1 (J3_3).
++ *
++ * The camera powers up only with a 1 kOhm resistor between pins 15 (3.3 V)
++ * and 11 (enable) of its connector, so the connector stays powered: driving
++ * its enable low would fight that resistor.
++ */
++
++/dts-v1/;
++/plugin/;
++
++&{/} {
++	cam1_imx296_clk: cam1-imx296-clk {
++		compatible = "fixed-clock";
++		#clock-cells = <0>;
++		clock-frequency = <54000000>;
++	};
++};
++
++&vreg_cam1 {
++	regulator-always-on;
++};
++
++&camss {
++	ports {
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		port@1 {
++			reg = <1>;
++
++			csiphy1_ep: endpoint {
++				data-lanes = <0>;
++				remote-endpoint = <&cam1_ep>;
++			};
++		};
++	};
++};
++
++&cci1_i2c0 {
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	camera@1a {
++		compatible = "sony,imx296";
++		reg = <0x1a>;
++
++		clocks = <&cam1_imx296_clk>;
++		clock-names = "inck";
++
++		avdd-supply = <&vreg_cam1>;
++
++		port {
++			cam1_ep: endpoint {
++				data-lanes = <1>;
++				link-frequencies = /bits/ 64 <594000000>;
++				remote-endpoint = <&csiphy1_ep>;
++			};
++		};
++	};
++};
+diff --color -uNr a/arch/arm64/boot/dts/qcom/monaco-arduino-monza-cam1-imx477.dtso b/arch/arm64/boot/dts/qcom/monaco-arduino-monza-cam1-imx477.dtso
+--- a/arch/arm64/boot/dts/qcom/monaco-arduino-monza-cam1-imx477.dtso
++++ b/arch/arm64/boot/dts/qcom/monaco-arduino-monza-cam1-imx477.dtso
+@@ -0,0 +1,56 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * Raspberry Pi HQ Camera (IMX477) on Camera 1 (J3_3).
++ */
++
++/dts-v1/;
++/plugin/;
++
++&{/} {
++	cam1_imx477_clk: cam1-imx477-clk {
++		compatible = "fixed-clock";
++		#clock-cells = <0>;
++		clock-frequency = <24000000>;
++	};
++};
++
++&camss {
++	ports {
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		port@1 {
++			reg = <1>;
++
++			csiphy1_ep: endpoint {
++				data-lanes = <0 1>;
++				remote-endpoint = <&cam1_ep>;
++			};
++		};
++	};
++};
++
++&cci1_i2c0 {
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	camera@1a {
++		compatible = "sony,imx477";
++		reg = <0x1a>;
++
++		clocks = <&cam1_imx477_clk>;
++		clock-names = "xclk";
++
++		VANA-supply = <&vreg_cam1>;
++
++		port {
++			cam1_ep: endpoint {
++				clock-lanes = <0>;
++				data-lanes = <1 2>;
++				clock-noncontinuous;
++				link-frequencies = /bits/ 64 <450000000>;
++				remote-endpoint = <&csiphy1_ep>;
++			};
++		};
++	};
++};
+diff --color -uNr a/arch/arm64/boot/dts/qcom/monaco-arduino-monza-cam2-imx296.dtso b/arch/arm64/boot/dts/qcom/monaco-arduino-monza-cam2-imx296.dtso
+--- a/arch/arm64/boot/dts/qcom/monaco-arduino-monza-cam2-imx296.dtso
++++ b/arch/arm64/boot/dts/qcom/monaco-arduino-monza-cam2-imx296.dtso
+@@ -0,0 +1,62 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * Raspberry Pi Global Shutter Camera (IMX296) on Camera 2 (J3_1).
++ *
++ * The camera powers up only with a 1 kOhm resistor between pins 15 (3.3 V)
++ * and 11 (enable) of its connector, so the connector stays powered: driving
++ * its enable low would fight that resistor.
++ */
++
++/dts-v1/;
++/plugin/;
++
++&{/} {
++	cam2_imx296_clk: cam2-imx296-clk {
++		compatible = "fixed-clock";
++		#clock-cells = <0>;
++		clock-frequency = <54000000>;
++	};
++};
++
++&vreg_cam2 {
++	regulator-always-on;
++};
++
++&camss {
++	ports {
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		port@2 {
++			reg = <2>;
++
++			csiphy2_ep: endpoint {
++				data-lanes = <0>;
++				remote-endpoint = <&cam2_ep>;
++			};
++		};
++	};
++};
++
++&cci2_i2c0 {
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	camera@1a {
++		compatible = "sony,imx296";
++		reg = <0x1a>;
++
++		clocks = <&cam2_imx296_clk>;
++		clock-names = "inck";
++
++		avdd-supply = <&vreg_cam2>;
++
++		port {
++			cam2_ep: endpoint {
++				data-lanes = <1>;
++				link-frequencies = /bits/ 64 <594000000>;
++				remote-endpoint = <&csiphy2_ep>;
++			};
++		};
++	};
++};
+diff --color -uNr a/arch/arm64/boot/dts/qcom/monaco-arduino-monza-cam2-imx477.dtso b/arch/arm64/boot/dts/qcom/monaco-arduino-monza-cam2-imx477.dtso
+--- a/arch/arm64/boot/dts/qcom/monaco-arduino-monza-cam2-imx477.dtso
++++ b/arch/arm64/boot/dts/qcom/monaco-arduino-monza-cam2-imx477.dtso
+@@ -0,0 +1,56 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * Raspberry Pi HQ Camera (IMX477) on Camera 2 (J3_1).
++ */
++
++/dts-v1/;
++/plugin/;
++
++&{/} {
++	cam2_imx477_clk: cam2-imx477-clk {
++		compatible = "fixed-clock";
++		#clock-cells = <0>;
++		clock-frequency = <24000000>;
++	};
++};
++
++&camss {
++	ports {
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		port@2 {
++			reg = <2>;
++
++			csiphy2_ep: endpoint {
++				data-lanes = <0 1>;
++				remote-endpoint = <&cam2_ep>;
++			};
++		};
++	};
++};
++
++&cci2_i2c0 {
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	camera@1a {
++		compatible = "sony,imx477";
++		reg = <0x1a>;
++
++		clocks = <&cam2_imx477_clk>;
++		clock-names = "xclk";
++
++		VANA-supply = <&vreg_cam2>;
++
++		port {
++			cam2_ep: endpoint {
++				clock-lanes = <0>;
++				data-lanes = <1 2>;
++				clock-noncontinuous;
++				link-frequencies = /bits/ 64 <450000000>;
++				remote-endpoint = <&csiphy2_ep>;
++			};
++		};
++	};
++};

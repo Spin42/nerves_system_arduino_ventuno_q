@@ -1,0 +1,126 @@
+From: Loïc Vigneron <loic@spin42.com>
+Subject: [PATCH] arm64: dts: qcom: monaco-arduino-monza: Add the camera connectors
+
+The three Raspberry Pi camera connectors, each on its own CSIPHY and CCI
+bus; pin 17 of each connector powers its module on. The sensors come
+from overlays.
+
+The connectors' I2C lines pass through TXS0108 level translators with
+10 kOhm pull-ups; the IMX296 does not answer through them at 400 kHz and
+does at 100 kHz, the rate Raspberry Pi boards use, so the three buses
+run at 100 kHz. The CSI0 and CSI1 lanes go through TS3DV642 switches
+that route them to J3_2 and J3_3 or to the JMEDIA header; GPIO 24 and
+41 select the connectors.
+---
+--- a/arch/arm64/boot/dts/qcom/monaco-arduino-monza.dts
++++ b/arch/arm64/boot/dts/qcom/monaco-arduino-monza.dts
+@@ -591,3 +591,109 @@
+ 
+ 	status = "okay";
+ };
++
++/*
++ * The three Raspberry Pi camera connectors. Each one has its own CSIPHY and
++ * CCI bus, and pin 17 of the connector, driven by a GPIO, powers the module
++ * on. The sensors come from the monaco-arduino-monza-camN-*.dtbo overlays.
++ *
++ *   Camera 0 (J3_2): CSIPHY0, CCI0 bus 0, enable GPIO 64
++ *   Camera 1 (J3_3): CSIPHY1, CCI1 bus 0, enable GPIO 75
++ *   Camera 2 (J3_1): CSIPHY2, CCI2 bus 0, enable GPIO 82
++ */
++/ {
++	vreg_cam0: regulator-cam0 {
++		compatible = "regulator-fixed";
++		regulator-name = "vreg_cam0";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		gpio = <&tlmm 64 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		startup-delay-us = <300000>;
++	};
++
++	vreg_cam1: regulator-cam1 {
++		compatible = "regulator-fixed";
++		regulator-name = "vreg_cam1";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		gpio = <&tlmm 75 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		startup-delay-us = <300000>;
++	};
++
++	vreg_cam2: regulator-cam2 {
++		compatible = "regulator-fixed";
++		regulator-name = "vreg_cam2";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		gpio = <&tlmm 82 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		startup-delay-us = <300000>;
++	};
++};
++
++/* Route the CSI0 and CSI1 lanes to J3_2 and J3_3 rather than JMEDIA. */
++&tlmm {
++	cam0-mipi-mux-hog {
++		gpio-hog;
++		gpios = <24 GPIO_ACTIVE_HIGH>;
++		output-high;
++		line-name = "CAM0_MIPI_MUX_SEL";
++	};
++
++	cam1-mipi-mux-hog {
++		gpio-hog;
++		gpios = <41 GPIO_ACTIVE_HIGH>;
++		output-high;
++		line-name = "CAM1_MIPI_MUX_SEL";
++	};
++};
++
++&camss {
++	vdda-phy-supply = <&vreg_l4a>;
++	vdda-pll-supply = <&vreg_l5a>;
++
++	status = "okay";
++
++	ports {
++		#address-cells = <1>;
++		#size-cells = <0>;
++	};
++};
++
++&cci0 {
++	pinctrl-0 = <&cci0_0_default>;
++	pinctrl-1 = <&cci0_0_sleep>;
++
++	status = "okay";
++};
++
++/* The board's I2C level translators do not pass 400 kHz to the IMX296. */
++&cci0_i2c0 {
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	clock-frequency = <100000>;
++};
++
++&cci1_i2c0 {
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	clock-frequency = <100000>;
++};
++
++&cci2 {
++	pinctrl-0 = <&cci2_0_default>;
++	pinctrl-1 = <&cci2_0_sleep>;
++
++	status = "okay";
++};
++
++&cci2_i2c0 {
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	clock-frequency = <100000>;
++};

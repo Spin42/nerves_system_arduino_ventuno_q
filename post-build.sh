@@ -31,3 +31,23 @@ ln -sf ops.fw "$TARGET_DIR/usr/share/fwup/revert.fw"
 # Copy the fwup includes and the GRUB script to the images dir
 cp -rf "$NERVES_DEFCONFIG_DIR/fwup_include" "$BINARIES_DIR"
 cp -f "$NERVES_DEFCONFIG_DIR/grub.cfg" "$BINARIES_DIR/grub.cfg"
+
+# One device tree per camera combination: Camera 0, 1 and 2 each have no
+# sensor, an IMX296 or an IMX477. /boot/slot.cfg boots the one that
+# /boot/cameras.cfg names.
+cameras="none imx296 imx477"
+for c0 in $cameras; do
+    for c1 in $cameras; do
+        for c2 in $cameras; do
+            [ "$c0-$c1-$c2" = none-none-none ] && continue
+            overlays=""
+            n=0
+            for c in $c0 $c1 $c2; do
+                [ "$c" != none ] && overlays="$overlays $TARGET_DIR/boot/monaco-arduino-monza-cam$n-$c.dtbo"
+                n=$((n + 1))
+            done
+            "$HOST_DIR/bin/fdtoverlay" -i "$TARGET_DIR/boot/monaco-arduino-monza.dtb" \
+                -o "$TARGET_DIR/boot/monaco-arduino-monza-$c0-$c1-$c2.dtb" $overlays
+        done
+    done
+done
