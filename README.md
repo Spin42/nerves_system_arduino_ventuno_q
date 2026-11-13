@@ -35,7 +35,7 @@ Add the system to your Nerves project's dependencies:
 ```elixir
 {:nerves_system_arduino_ventuno_q,
  github: "Spin42/nerves_system_arduino_ventuno_q",
- tag: "v0.1.0",
+ tag: "v0.1.1",
  runtime: false,
  targets: :arduino_ventuno_q,
  nerves: [compile: false]}
