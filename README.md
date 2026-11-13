@@ -16,6 +16,7 @@ Dragonwing IQ-8275 (QCS8275) with an STM32H5F5 microcontroller.
 | USB            | Ethernet gadget (`usb0`) on the USB-C port                         |
 | GPU            | Adreno 623: Mesa (freedreno, Turnip), Vulkan 1.3                   |
 | NPU            | Hexagon v75 CDSP over FastRPC; the QAIRT runtime is not included   |
+| Video codec    | Iris (`qcom-iris`): H.264 and HEVC encoder and decoder over V4L2   |
 | Cameras        | Raspberry Pi Global Shutter and HQ cameras on 3 CSI connectors     |
 | Wi-Fi          | QCA2066 over PCIe (ath11k), `wlan0`                                |
 | Bluetooth      | QCA2066 over UART (`hci_uart`), `hci0`                             |
@@ -239,6 +240,27 @@ npu-check /path/to/libmodel.so --input_list inputs.txt --output_dir /root/out
 
 HTP models run in an unsigned protection domain; no per-board signature is
 needed.
+
+## Video codec
+
+The mainline `qcom-iris` driver runs the SoC's video codec with
+`qcom/vpu/vpu30_p4_s6.mbn` from `linux-firmware`. It registers two V4L2
+memory-to-memory devices, named `qcom-iris-decoder` and `qcom-iris-encoder`
+in `/sys/class/video4linux/video*/name`. The encoder takes NV12 (or Q08C)
+and gives H.264 or HEVC; a 2032 × 1520 image takes lines of 2048 bytes and
+1536 rows. It encodes 300 such frames in about 1.1 s:
+
+```sh
+v4l2-ctl -d /dev/video1 \
+  --set-fmt-video-out=width=2032,height=1520,pixelformat=NV12 \
+  --set-fmt-video=width=2032,height=1520,pixelformat=H264 \
+  --stream-mmap --stream-out-mmap --stream-from=/root/in.nv12 \
+  --stream-to=/root/out.h264 --stream-count=300
+```
+
+The encoder never sets `V4L2_BUF_FLAG_KEYFRAME`: a key frame is the one whose
+first slice is an IDR slice. A `V4L2_CID_MPEG_VIDEO_GOP_SIZE` of n puts key
+frames n + 1 frames apart. The decoder is untested.
 
 ## Kernel command line
 
